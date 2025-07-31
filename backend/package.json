@@ -6,11 +6,31 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["ShopSawa", "backend", "e-commerce", "mpesa", "nodejs", "typescript", "mongodb", "express", "mongoose", "redis", "swagger", "jest", "eslint", "prettier", "husky", "lint-staged", "nodemon", "supertest"],
+  "keywords": [
+    "ShopSawa",
+    "backend",
+    "e-commerce",
+    "mpesa",
+    "nodejs",
+    "typescript",
+    "mongodb",
+    "express",
+    "mongoose",
+    "redis",
+    "swagger",
+    "jest",
+    "eslint",
+    "prettier",
+    "husky",
+    "lint-staged",
+    "nodemon",
+    "supertest"
+  ],
   "author": "Brandon",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "africastalking": "^0.7.3",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
