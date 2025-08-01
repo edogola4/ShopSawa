@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - MONGODB_URI=mongodb://mongo:27017/ecommerce
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-super-secret-jwt-key-make-it-at-least-32-characters-long
+      - JWT_EXPIRES_IN=7d
+      - JWT_COOKIE_EXPIRES_IN=7
+      - APP_NAME=ECommerce Platform
+      - APP_URL=http://localhost:5001
+      - EMAIL_FROM=noreply@yourdomain.com
+      - LOG_LEVEL=info
+      # Add your external service credentials here
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - MPESA_ENVIRONMENT=sandbox
+      - MPESA_CONSUMER_KEY=${MPESA_CONSUMER_KEY}
+      - MPESA_CONSUMER_SECRET=${MPESA_CONSUMER_SECRET}
+      - MPESA_SHORTCODE=174379
+      - MPESA_PASSKEY=bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919
+      - MPESA_CALLBACK_URL=http://localhost:5001/api/v1/payments/mpesa/callback
+      - MPESA_TIMEOUT_URL=http://localhost:5001/api/v1/payments/mpesa/timeout
+      - AFRICASTALKING_USERNAME=sandbox
+      - AFRICASTALKING_API_KEY=${AFRICASTALKING_API_KEY}
+    depends_on:
+      - mongo
+      - redis
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB Database
+  mongo:
+    image: mongo:5.0
+    container_name: ecommerce-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=ecommerce
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/ecommerce --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:6.2-alpine
+    container_name: ecommerce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: redis-server --appendonly yes
+
+  # MongoDB Admin Interface (Optional)
+  mongo-express:
+    image: mongo-express
+    container_name: ecommerce-mongo-admin
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    depends_on:
+      - mongo
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Redis Admin Interface (Optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ecommerce-redis-admin
+    ports:
+      - "8082:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ecommerce-network:
+    driver: bridge
