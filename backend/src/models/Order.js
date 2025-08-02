@@ -1,6 +1,6 @@
 // backend/src/models/Order.js
 
-const mongoose = require('mongoose');
+const mongoose = require('mongoose'); // ✅ Added this missing line!
 
 const orderSchema = new mongoose.Schema({
   orderNumber: {
@@ -136,7 +136,7 @@ orderSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to generate order number
 orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
+  if (this.isNew && !this.orderNumber) { // ✅ Added !this.orderNumber check
     const count = await mongoose.model('Order').countDocuments();
     this.orderNumber = `ORD${Date.now()}${String(count + 1).padStart(4, '0')}`;
   }

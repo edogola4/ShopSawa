@@ -1,9 +1,12 @@
+// backend/src/app.js
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser'); // ✅ Added this
 const path = require('path');
 
 const app = express();
@@ -50,6 +53,7 @@ app.use('/api/', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser()); // ✅ Added this
 
 // Compression middleware
 app.use(compression());
@@ -75,6 +79,27 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to ShopSawa E-commerce API! 🛒',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      api: '/api/v1',
+      documentation: '/api-docs'
+    },
+    quickStart: {
+      apiBase: '/api/v1',
+      auth: '/api/v1/auth',
+      products: '/api/v1/products',
+      categories: '/api/v1/categories',
+      orders: '/api/v1/orders'
+    }
+  });
+});
+
 // API routes
 app.get('/api/v1', (req, res) => {
   res.json({
@@ -85,7 +110,8 @@ app.get('/api/v1', (req, res) => {
       health: '/health',
       auth: '/api/v1/auth',
       products: '/api/v1/products',
-      orders: '/api/v1/orders (coming soon)',
+      categories: '/api/v1/categories',
+      orders: '/api/v1/orders',
       payments: '/api/v1/payments (coming soon)',
       admin: '/api/v1/admin (coming soon)'
     }
@@ -95,15 +121,21 @@ app.get('/api/v1', (req, res) => {
 // Import and use routes
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
+const categoriesRouter = require('./routes/categories');
+const orderRoutes = require('./routes/orders');
+const cartRoutes = require('./routes/cart');
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/categories', categoriesRouter);
+app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1/cart', cartRoutes);
 
 // 404 handler
 const notFound = require('./middleware/notFound');
 app.use(notFound);
 
-// Global error handler  
+// Global error handler
 const errorHandler = require('./middleware/errorHandler');
 app.use(errorHandler);
 

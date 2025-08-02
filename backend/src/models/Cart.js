@@ -1,5 +1,7 @@
 // backend/src/models/Cart.js
 
+const mongoose = require('mongoose'); // ✅ Added this missing line!
+
 const cartSchema = new mongoose.Schema({
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -368,4 +370,3 @@ const cartSchema = new mongoose.Schema({
   };
   
   module.exports = mongoose.model('Cart', cartSchema);
-  

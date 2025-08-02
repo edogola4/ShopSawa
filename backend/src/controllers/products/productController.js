@@ -1,3 +1,5 @@
+// backend/src/controllers/products/productController.js
+
 const Product = require('../../models/Product');
 const Category = require('../../models/Category');
 const catchAsync = require('../../utils/catchAsync');

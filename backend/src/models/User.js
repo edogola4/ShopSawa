@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const validator = require('validator');
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -23,7 +24,7 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     validate: {
       validator: function(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        return validator.isEmail(email);
       },
       message: 'Please provide a valid email'
     }
@@ -33,7 +34,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Phone number is required'],
     validate: {
       validator: function(phone) {
-        return /^254[0-9]{9}$/.test(phone);
+        return validator.isMobilePhone(phone, 'en-KE');
       },
       message: 'Please provide a valid Kenyan phone number (254XXXXXXXXX)'
     }

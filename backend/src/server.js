@@ -1,3 +1,5 @@
+// backend/src/server.js
+
 require('dotenv').config();
 const app = require('./app');
 const { connectDB } = require('./config/database');
@@ -16,9 +18,9 @@ async function startServer() {
     // Connect to database
     await connectDB();
     
-    // TODO: Initialize other services
-    // const { connectRedis } = require('./config/redis');
-    // await connectRedis();
+    // Initialize other services
+    //const { connectRedis } = require('./config/redis');
+    //await connectRedis();
     // console.log('✅ Redis connected');
 
     const PORT = process.env.PORT || 5001;

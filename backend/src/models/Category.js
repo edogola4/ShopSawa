@@ -129,8 +129,8 @@ const categorySchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toJSON: { virtuals: false }, // Disable virtuals in JSON to prevent circular refs
+  toObject: { virtuals: false }
 });
 
 // Indexes for performance
@@ -140,31 +140,6 @@ categorySchema.index({ parent: 1, isActive: 1 });
 categorySchema.index({ level: 1, sortOrder: 1 });
 categorySchema.index({ featured: 1, isActive: 1 });
 categorySchema.index({ path: 1 });
-
-// Virtual for subcategories
-categorySchema.virtual('subcategories', {
-  ref: 'Category',
-  localField: '_id',
-  foreignField: 'parent',
-  match: { isActive: true }
-});
-
-// Virtual for products
-categorySchema.virtual('products', {
-  ref: 'Product',
-  localField: '_id',
-  foreignField: 'category',
-  match: { status: 'active' }
-});
-
-// Virtual for breadcrumb
-categorySchema.virtual('breadcrumb').get(function() {
-  if (!this.path) return [this];
-  
-  const pathIds = this.path.split('/').filter(id => id);
-  // This would need to be populated in controller
-  return pathIds;
-});
 
 // Pre-save middleware to generate slug and path
 categorySchema.pre('save', async function(next) {
@@ -205,20 +180,19 @@ categorySchema.pre('save', async function(next) {
   next();
 });
 
-// Update product count when category changes
-categorySchema.post('save', async function() {
-  await this.updateProductCount();
-});
-
 // Instance method to update product count
 categorySchema.methods.updateProductCount = async function() {
-  const Product = mongoose.model('Product');
-  const count = await Product.countDocuments({ 
-    category: this._id, 
-    status: 'active' 
-  });
-  
-  await this.constructor.findByIdAndUpdate(this._id, { productCount: count });
+  try {
+    const Product = mongoose.model('Product');
+    const count = await Product.countDocuments({ 
+      category: this._id, 
+      status: 'active' 
+    });
+    
+    await this.constructor.findByIdAndUpdate(this._id, { productCount: count });
+  } catch (error) {
+    console.error('Error updating product count:', error);
+  }
 };
 
 // Static method to get category tree
@@ -237,6 +211,14 @@ categorySchema.statics.getCategoryTree = async function() {
   };
 
   return buildTree(categories);
+};
+
+// Static method to get subcategories
+categorySchema.statics.getSubcategories = async function(parentId) {
+  return await this.find({ 
+    parent: parentId, 
+    isActive: true 
+  }).sort({ sortOrder: 1, name: 1 });
 };
 
 module.exports = mongoose.model('Category', categorySchema);
