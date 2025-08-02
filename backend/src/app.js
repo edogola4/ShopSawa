@@ -25,6 +25,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:5001',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
@@ -67,6 +68,22 @@ if (process.env.NODE_ENV === 'development') {
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Serve admin static files
+app.use('/admin', express.static(path.join(__dirname, '../public')));
+
+// Admin routes
+app.use('/api/v1/admin', require('./routes/admin'));
+
+// Admin API routes
+app.use('/api/v1/admin', require('./routes/admin'));
+
+// Admin API routes
+app.use('/api/v1/admin', require('./routes/admin'));
+
+app.use('/admin', express.static(path.join(__dirname, '../public')));
+
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -124,12 +141,14 @@ const productRoutes = require('./routes/products');
 const categoriesRouter = require('./routes/categories');
 const orderRoutes = require('./routes/orders');
 const cartRoutes = require('./routes/cart');
+const adminRoutes = require('./routes/admin');
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/cart', cartRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // 404 handler
 const notFound = require('./middleware/notFound');

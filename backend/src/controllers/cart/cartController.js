@@ -1,7 +1,5 @@
 // backend/src/controllers/cart/cartController.js
 
-// backend/src/controllers/cart/cartController.js
-
 const Cart = require('../../models/Cart');
 const Product = require('../../models/Product');
 const catchAsync = require('../../utils/catchAsync');
