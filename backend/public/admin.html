@@ -147,6 +147,11 @@
             border-color: #667eea;
         }
 
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
         .btn {
             padding: 12px 25px;
             border: none;
@@ -237,6 +242,12 @@
             gap: 20px;
         }
 
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
         .orders-list, .users-list {
             max-height: 400px;
             overflow-y: auto;
@@ -270,12 +281,106 @@
             color: #721c24;
         }
 
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .form-section.active {
+            background: white;
+            border: 2px solid #667eea;
+        }
+
+        .image-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .image-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .image-preview img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 2px solid #ddd;
+        }
+
+        .tag-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            min-height: 45px;
+            align-items: center;
+        }
+
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tag .remove-tag {
+            cursor: pointer;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        /* ✅ Additional styles for category dropdown */
+        #productCategory:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #productCategory option {
+            padding: 8px;
+        }
+
+        .category-info {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
             }
             
-            .grid-2 {
+            .grid-2, .grid-3 {
                 grid-template-columns: 1fr;
             }
             
@@ -386,7 +491,7 @@
                         <button class="btn btn-primary" data-action="refresh-users">Refresh Users</button>
                         <button class="btn btn-success" data-action="show-create-user">Create Admin User</button>
                     </div>
-                    <div id="createUserForm" style="display: none; background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                    <div id="createUserForm" style="display: none;" class="form-section">
                         <h4>Create Admin User</h4>
                         <form id="adminUserForm">
                             <div class="grid-2">
@@ -435,7 +540,8 @@
                 <div id="products" class="tab-panel">
                     <h3>Product Management</h3>
                     <div class="form-group">
-                        <button class="btn btn-primary" data-action="refresh-products">Refresh Products</button>
+                        <button class="btn btn-success" data-action="show-add-product">➕ Add Product</button>
+                        <button class="btn btn-primary" data-action="refresh-products">🔄 Refresh Products</button>
                         <select id="productStatusFilter">
                             <option value="">All Products</option>
                             <option value="active">Active</option>
@@ -443,6 +549,123 @@
                             <option value="draft">Draft</option>
                         </select>
                     </div>
+
+                    <!-- Add Product Form -->
+                    <div id="addProductForm" style="display: none;" class="form-section">
+                        <h4>Add New Product</h4>
+                        <form id="productForm">
+                            <!-- Basic Information -->
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="productName">Product Name *</label>
+                                    <input type="text" id="productName" required placeholder="Enter product name">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productSku">SKU</label>
+                                    <input type="text" id="productSku" placeholder="Auto-generated if empty">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="productDescription">Description *</label>
+                                <textarea id="productDescription" required placeholder="Enter product description"></textarea>
+                            </div>
+
+                            <!-- Pricing -->
+                            <div class="grid-3">
+                                <div class="form-group">
+                                    <label for="productPrice">Price (KES) *</label>
+                                    <input type="number" id="productPrice" required step="0.01" min="0" placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productComparePrice">Compare Price (KES)</label>
+                                    <input type="number" id="productComparePrice" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productCostPrice">Cost Price (KES)</label>
+                                    <input type="number" id="productCostPrice" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <!-- Inventory -->
+                            <div class="grid-3">
+                                <div class="form-group">
+                                    <label for="productStock">Stock Quantity *</label>
+                                    <input type="number" id="productStock" required min="0" placeholder="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productMinStock">Low Stock Alert</label>
+                                    <input type="number" id="productMinStock" min="0" placeholder="5">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productWeight">Weight (kg)</label>
+                                    <input type="number" id="productWeight" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <!-- ✅ UPDATED Category and Status Section -->
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="productCategory">Category *</label>
+                                    <select id="productCategory" required>
+                                        <option value="">Loading categories...</option>
+                                        <!-- ✅ Categories will be loaded dynamically by admin.js -->
+                                    </select>
+                                    <div class="category-info">
+                                        <small>Don't see your category? Select "Create New Category" from the dropdown.</small>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="productStatus">Status</label>
+                                    <select id="productStatus">
+                                        <option value="active">Active</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Tags -->
+                            <div class="form-group">
+                                <label for="productTags">Tags</label>
+                                <div class="tag-input" id="tagInput">
+                                    <input type="text" id="tagInputField" placeholder="Add tags (press Enter)">
+                                </div>
+                                <small>Press Enter to add tags. Tags help with search and organization.</small>
+                            </div>
+
+                            <!-- Images -->
+                            <div class="form-group">
+                                <label for="productImages">Product Images</label>
+                                <div class="image-upload-area" onclick="document.getElementById('productImages').click()">
+                                    <p>📸 Click to upload images or drag & drop</p>
+                                    <small>Supports JPG, PNG, WebP (Max 5MB each)</small>
+                                </div>
+                                <input type="file" id="productImages" multiple accept="image/*" style="display: none;">
+                                <div id="imagePreview" class="image-preview"></div>
+                            </div>
+
+                            <!-- SEO -->
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label for="productMetaTitle">SEO Title</label>
+                                    <input type="text" id="productMetaTitle" placeholder="SEO optimized title">
+                                </div>
+                                <div class="form-group">
+                                    <label for="productMetaDescription">SEO Description</label>
+                                    <textarea id="productMetaDescription" placeholder="SEO meta description" rows="3"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Form Actions -->
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-success">✅ Create Product</button>
+                                <button type="button" class="btn btn-secondary" data-action="hide-add-product">❌ Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Products Table -->
                     <div id="productsTable">
                         <div class="loading">Loading products...</div>
                     </div>

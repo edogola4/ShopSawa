@@ -19,6 +19,24 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
+// Add admin-specific CSP middleware
+app.use('/admin', (req, res, next) => {
+  // Override CSP for admin routes only
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "script-src-attr 'unsafe-inline'; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self'; " +
+    "font-src 'self' data:; " +
+    "object-src 'none'; " +
+    "media-src 'self'; " +
+    "frame-src 'none'"
+  );
+  next();
+});
+
 // CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
@@ -66,24 +84,15 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Serve static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// ✅ Serve static files - CORRECTED PATHS
+// Serve uploaded files (images, documents, etc.)
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// Serve admin static files
+// Serve admin panel static files (HTML, CSS, JS)
 app.use('/admin', express.static(path.join(__dirname, '../public')));
 
-// Admin routes
-app.use('/api/v1/admin', require('./routes/admin'));
-
-// Admin API routes
-app.use('/api/v1/admin', require('./routes/admin'));
-
-// Admin API routes
-app.use('/api/v1/admin', require('./routes/admin'));
-
-app.use('/admin', express.static(path.join(__dirname, '../public')));
-
-
+// ✅ Optional: Serve general static files if needed
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

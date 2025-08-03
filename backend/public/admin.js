@@ -3,6 +3,38 @@
 const API_BASE = 'http://localhost:5001/api/v1';
 let authToken = localStorage.getItem('adminToken');
 let currentUser = null;
+let selectedTags = [];
+let selectedImages = [];
+let availableCategories = []; // ✅ Added for category management
+
+// ✅ DEBUG: Add debugging variables
+let eventListenersInitialized = false;
+let isCreatingProduct = false;
+
+// ✅ DEBUG: Test function to verify code is working
+window.testProductCreation = function() {
+    console.log('🧪 Testing product creation system...');
+    console.log('1. Auth token exists:', !!authToken);
+    console.log('2. Current user:', currentUser);
+    console.log('3. Available categories:', availableCategories.length);
+    console.log('4. Event listeners initialized:', eventListenersInitialized);
+    console.log('5. Product form exists:', !!document.getElementById('productForm'));
+    console.log('6. Add product button exists:', !!document.querySelector('[data-action="show-add-product"]'));
+    
+    // Test if we can access the form elements
+    const formElements = {
+        productName: document.getElementById('productName'),
+        productSku: document.getElementById('productSku'),
+        productDescription: document.getElementById('productDescription'),
+        productPrice: document.getElementById('productPrice'),
+        productCategory: document.getElementById('productCategory')
+    };
+    
+    console.log('7. Form elements:', formElements);
+    return 'Test complete - check console for results';
+};
+
+console.log('🔍 DEBUG: Admin.js loading with debugging enabled...');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
@@ -99,7 +131,163 @@ async function apiCall(endpoint, options = {}) {
     return data;
 }
 
-// Load dashboard data
+// ===== CATEGORY MANAGEMENT FUNCTIONS =====
+
+// Load categories when dashboard loads
+async function loadCategories() {
+    console.log('Loading categories...');
+    try {
+        const data = await apiCall('/categories');
+        availableCategories = data.data.categories || [];
+        console.log('Categories loaded:', availableCategories);
+        populateCategoryDropdown();
+    } catch (error) {
+        console.error('Categories loading error:', error);
+        showAlert('Error loading categories: ' + error.message, 'error');
+        
+        // Fallback: create a basic category if none exist
+        await createDefaultCategory();
+    }
+}
+
+// Populate the category dropdown
+function populateCategoryDropdown() {
+    const categorySelect = document.getElementById('productCategory');
+    if (!categorySelect) return;
+
+    // Clear existing options
+    categorySelect.innerHTML = '<option value="">Select a category</option>';
+
+    if (availableCategories.length === 0) {
+        // No categories found, show create option
+        const option = document.createElement('option');
+        option.value = 'create-new';
+        option.textContent = 'Create First Category';
+        option.style.color = '#667eea';
+        categorySelect.appendChild(option);
+        return;
+    }
+
+    // Add categories with ObjectIds as values
+    availableCategories.forEach(category => {
+        if (category.isActive) {
+            const option = document.createElement('option');
+            option.value = category._id; // ✅ This is the ObjectId
+            option.textContent = category.name;
+            categorySelect.appendChild(option);
+        }
+    });
+
+    // Add create new option
+    const createOption = document.createElement('option');
+    createOption.value = 'create-new';
+    createOption.textContent = '+ Create New Category';
+    createOption.style.color = '#667eea';
+    createOption.style.fontStyle = 'italic';
+    categorySelect.appendChild(createOption);
+}
+
+// Create a default category
+async function createDefaultCategory() {
+    try {
+        const categoryData = {
+            name: "General",
+            description: "General category for products",
+            isActive: true
+        };
+
+        const response = await apiCall('/categories', {
+            method: 'POST',
+            body: JSON.stringify(categoryData)
+        });
+
+        console.log('Default category created:', response);
+        availableCategories = [response.data.category];
+        populateCategoryDropdown();
+        showAlert('✅ Default category created!', 'success');
+        
+    } catch (error) {
+        console.error('Error creating default category:', error);
+        showAlert('❌ Could not create default category. Please contact support.', 'error');
+    }
+}
+
+// Handle category selection
+function handleCategorySelection() {
+    const categorySelect = document.getElementById('productCategory');
+    if (!categorySelect) return;
+
+    categorySelect.addEventListener('change', function() {
+        if (this.value === 'create-new') {
+            const categoryName = prompt('Enter new category name:');
+            if (categoryName && categoryName.trim()) {
+                createNewCategory(categoryName.trim());
+            } else {
+                this.value = ''; // Reset if cancelled
+            }
+        }
+    });
+}
+
+// Create new categories
+async function createNewCategory(name) {
+    try {
+        const categoryData = {
+            name: name,
+            description: `${name} category`,
+            isActive: true
+        };
+
+        const response = await apiCall('/categories', {
+            method: 'POST',
+            body: JSON.stringify(categoryData)
+        });
+
+        showAlert('✅ Category created successfully!', 'success');
+        await loadCategories(); // Reload categories
+        
+        // Select the newly created category
+        const categorySelect = document.getElementById('productCategory');
+        if (categorySelect && response.data.category) {
+            categorySelect.value = response.data.category._id;
+        }
+
+    } catch (error) {
+        console.error('Category creation error:', error);
+        showAlert('❌ Error creating category: ' + error.message, 'error');
+        
+        // Reset dropdown
+        const categorySelect = document.getElementById('productCategory');
+        if (categorySelect) {
+            categorySelect.value = '';
+        }
+    }
+}
+
+// Validate category selection
+function validateCategorySelection(formData) {
+    // Check if category is selected
+    if (!formData.category || formData.category === '') {
+        showAlert('❌ Please select a category', 'error');
+        return false;
+    }
+
+    // Check if it's the create-new option
+    if (formData.category === 'create-new') {
+        showAlert('❌ Please create a category first', 'error');
+        return false;
+    }
+
+    // Check if it's a valid ObjectId (24 hex characters)
+    if (!/^[0-9a-fA-F]{24}$/.test(formData.category)) {
+        showAlert('❌ Invalid category selected. Please refresh and try again.', 'error');
+        return false;
+    }
+
+    return true;
+}
+
+// ✅ UPDATED Load dashboard data
 async function loadDashboardData() {
     console.log('Loading dashboard data...');
     try {
@@ -134,6 +322,9 @@ async function loadDashboardData() {
             </div>
         `).join('');
         document.getElementById('recentUsers').innerHTML = recentUsersHtml || '<p>No recent users</p>';
+
+        // ✅ Load categories
+        await loadCategories();
 
         console.log('Dashboard data loaded successfully');
     } catch (error) {
@@ -269,14 +460,38 @@ async function loadUsers() {
     }
 }
 
-// Load products - FIXED: Removed double /api/v1/ path
+// ✅ UPDATED Load products with enhanced debugging
 async function loadProducts() {
-    console.log('Loading products...');
+    console.log('🔄 Loading products...');
     try {
-        const data = await apiCall('/products'); // ✅ FIXED: Was '/api/v1/products'
-        const products = data.data.products;
+        // ✅ Don't filter by status - get ALL products
+        const data = await apiCall('/products');
+        console.log('📦 Products API response:', data);
+        
+        const products = data.data.products || [];
+        console.log(`📊 Found ${products.length} products:`);
+        
+        // ✅ Debug each product
+        products.forEach((product, index) => {
+            console.log(`${index + 1}. "${product.name}" - Status: ${product.status} - Category:`, product.category?.name || 'No category');
+        });
+
+        if (products.length === 0) {
+            document.getElementById('productsTable').innerHTML = `
+                <div class="alert alert-error">
+                    <h4>📦 No Products Found</h4>
+                    <p>No products have been created yet.</p>
+                    <button class="btn btn-success" data-action="show-add-product">➕ Create Your First Product</button>
+                </div>
+            `;
+            return;
+        }
 
         const productsHtml = `
+            <div style="margin-bottom: 15px;">
+                <strong>📊 Total Products: ${products.length}</strong>
+                <button class="btn btn-primary" onclick="loadProducts()" style="float: right;">🔄 Refresh</button>
+            </div>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -286,18 +501,20 @@ async function loadProducts() {
                         <th>Stock</th>
                         <th>Status</th>
                         <th>Category</th>
+                        <th>Created</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${products.map(product => `
                         <tr>
-                            <td>${product.name}</td>
-                            <td>${product.sku}</td>
-                            <td>KES ${product.price.toLocaleString()}</td>
+                            <td><strong>${product.name}</strong></td>
+                            <td>${product.sku || 'N/A'}</td>
+                            <td>KES ${product.price ? product.price.toLocaleString() : '0'}</td>
                             <td>${product.inventory ? product.inventory.quantity : 'N/A'}</td>
                             <td><span class="status-badge status-${product.status}">${product.status}</span></td>
-                            <td>${product.category.name}</td>
+                            <td>${product.category?.name || 'No Category'}</td>
+                            <td>${new Date(product.createdAt).toLocaleDateString()}</td>
                             <td>
                                 <button class="btn btn-primary" onclick="editProduct('${product._id}')">Edit</button>
                             </td>
@@ -308,17 +525,17 @@ async function loadProducts() {
         `;
 
         document.getElementById('productsTable').innerHTML = productsHtml;
-        console.log('Products loaded successfully');
+        console.log('✅ Products loaded and displayed successfully');
         
     } catch (error) {
-        console.error('Products loading error:', error);
+        console.error('❌ Products loading error:', error);
         showAlert('Error loading products: ' + error.message, 'error');
         
-        // Show fallback message
         document.getElementById('productsTable').innerHTML = `
             <div class="alert alert-error">
-                <p>Unable to load products: ${error.message}</p>
-                <button class="btn btn-primary" onclick="loadProducts()">Retry</button>
+                <h4>❌ Error Loading Products</h4>
+                <p>${error.message}</p>
+                <button class="btn btn-primary" onclick="loadProducts()">🔄 Retry</button>
             </div>
         `;
     }
@@ -330,8 +547,6 @@ async function loadAnalytics() {
     try {
         const period = document.getElementById('analyticsperiod').value;
         
-        // Note: These endpoints may not exist yet in your minimal admin routes
-        // If they fail, we'll show a placeholder
         try {
             const [salesData, customerData] = await Promise.all([
                 apiCall(`/admin/dashboard/sales?period=${period}`),
@@ -387,7 +602,6 @@ async function loadAnalytics() {
 
             document.getElementById('analyticsContent').innerHTML = analyticsHtml;
         } catch (analyticsError) {
-            // Fallback if advanced analytics endpoints don't exist
             document.getElementById('analyticsContent').innerHTML = `
                 <div class="alert alert-error">
                     <h4>📊 Analytics Coming Soon</h4>
@@ -404,7 +618,270 @@ async function loadAnalytics() {
     }
 }
 
-// Admin actions
+// ===== PRODUCT MANAGEMENT FUNCTIONS =====
+
+// ✅ UPDATED Show/Hide Add Product Form
+function showAddProductForm() {
+    document.getElementById('addProductForm').style.display = 'block';
+    document.getElementById('addProductForm').classList.add('active');
+    
+    // Reset form
+    document.getElementById('productForm').reset();
+    selectedTags = [];
+    selectedImages = [];
+    updateTagDisplay();
+    updateImagePreview();
+    
+    // ✅ Ensure categories are loaded and populated
+    if (availableCategories.length === 0) {
+        loadCategories();
+    } else {
+        populateCategoryDropdown();
+    }
+}
+
+function hideAddProductForm() {
+    document.getElementById('addProductForm').style.display = 'none';
+    document.getElementById('addProductForm').classList.remove('active');
+    // Reset form
+    document.getElementById('productForm').reset();
+    selectedTags = [];
+    selectedImages = [];
+    updateTagDisplay();
+    updateImagePreview();
+}
+
+// Tag Management
+function addTag(tagText) {
+    const tag = tagText.trim();
+    if (tag && !selectedTags.includes(tag)) {
+        selectedTags.push(tag);
+        updateTagDisplay();
+    }
+}
+
+function removeTag(tagText) {
+    selectedTags = selectedTags.filter(tag => tag !== tagText);
+    updateTagDisplay();
+}
+
+function updateTagDisplay() {
+    const tagInput = document.getElementById('tagInput');
+    const existingTags = tagInput.querySelectorAll('.tag');
+    existingTags.forEach(tag => tag.remove());
+
+    selectedTags.forEach(tag => {
+        const tagElement = document.createElement('div');
+        tagElement.className = 'tag';
+        tagElement.innerHTML = `
+            ${tag}
+            <span class="remove-tag" onclick="removeTag('${tag}')">×</span>
+        `;
+        tagInput.insertBefore(tagElement, document.getElementById('tagInputField'));
+    });
+}
+
+// Image Management
+function handleImageUpload(files) {
+    Array.from(files).forEach(file => {
+        if (file && file.type.startsWith('image/')) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                showAlert('❌ Image too large. Max size is 5MB.', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedImages.push({
+                    file: file,
+                    url: e.target.result,
+                    name: file.name
+                });
+                updateImagePreview();
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+function removeImage(index) {
+    selectedImages.splice(index, 1);
+    updateImagePreview();
+}
+
+function updateImagePreview() {
+    const preview = document.getElementById('imagePreview');
+    preview.innerHTML = selectedImages.map((image, index) => `
+        <div style="position: relative; display: inline-block;">
+            <img src="${image.url}" alt="${image.name}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 5px; border: 2px solid #ddd;">
+            <button type="button" onclick="removeImage(${index})" style="position: absolute; top: -5px; right: -5px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px;">×</button>
+        </div>
+    `).join('');
+}
+
+// ✅ UPDATED Create Product with validation and detailed debugging
+async function createProduct(formData) {
+    console.log('🚀 Creating product...');
+    console.log('📋 Input form data:', formData);
+    
+    // ✅ Validate category selection first
+    console.log('🔍 Validating category selection...');
+    if (!validateCategorySelection(formData)) {
+        console.log('❌ Category validation failed');
+        return; // Stop execution if validation fails
+    }
+    console.log('✅ Category validation passed');
+
+    // ✅ Validate required fields (SKU is optional)
+    console.log('🔍 Validating required fields...');
+    if (!formData.name || !formData.description || !formData.price) {
+        console.log('❌ Required field validation failed:', {
+            name: !!formData.name,
+            description: !!formData.description,
+            price: !!formData.price,
+            sku: !!formData.sku + ' (optional)'
+        });
+        showAlert('❌ Please fill in all required fields (Name, Description, Price)', 'error');
+        return;
+    }
+    console.log('✅ Required fields validation passed');
+
+    try {
+        // If images are selected, we need to upload them first
+        let imageUrls = [];
+        
+        if (selectedImages.length > 0) {
+            console.log('📸 Uploading', selectedImages.length, 'images...');
+            for (const imageData of selectedImages) {
+                const imageFormData = new FormData();
+                imageFormData.append('image', imageData.file);
+                
+                try {
+                    const imageResponse = await fetch(`${API_BASE}/products/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: imageFormData
+                    });
+                    
+                    if (imageResponse.ok) {
+                        const imageResult = await imageResponse.json();
+                        imageUrls.push(imageResult.data.url);
+                        console.log('✅ Image uploaded:', imageResult.data.url);
+                    } else {
+                        console.log('❌ Image upload failed:', imageResponse.status);
+                    }
+                } catch (imageError) {
+                    console.error('❌ Image upload error:', imageError);
+                    showAlert('⚠️ Failed to upload some images', 'error');
+                }
+            }
+        } else {
+            console.log('📸 No images to upload');
+        }
+
+        // ✅ UPDATED: Prepare clean product data with fixed status default
+        console.log('🔧 Preparing product data...');
+        const cleanFormData = {
+            name: formData.name,
+            description: formData.description,
+            price: formData.price,
+            category: formData.category, // ✅ This is now a valid ObjectId
+            status: formData.status || 'active', // ✅ FIXED: Ensure default is 'active'
+            inventory: {
+                quantity: formData.inventory?.quantity || 0,
+                lowStockThreshold: formData.inventory?.lowStockAlert || 5,
+                trackQuantity: true
+            }
+        };
+
+        // Add SKU only if provided
+        if (formData.sku && formData.sku.trim()) {
+            cleanFormData.sku = formData.sku.trim();
+            console.log('➕ Added SKU:', formData.sku);
+        } else {
+            console.log('📝 No SKU provided - will auto-generate');
+        }
+
+        // Add optional fields if they exist
+        if (formData.comparePrice) {
+            cleanFormData.comparePrice = formData.comparePrice;
+            console.log('➕ Added comparePrice:', formData.comparePrice);
+        }
+        if (formData.costPrice) {
+            cleanFormData.costPrice = formData.costPrice;
+            console.log('➕ Added costPrice:', formData.costPrice);
+        }
+        if (formData.weight) {
+            cleanFormData.dimensions = { weight: formData.weight };
+            console.log('➕ Added weight:', formData.weight);
+        }
+        if (formData.seo?.title || formData.seo?.description) {
+            cleanFormData.seo = formData.seo;
+            console.log('➕ Added SEO data:', formData.seo);
+        }
+
+        // Add images if uploaded
+        if (imageUrls.length > 0) {
+            cleanFormData.images = imageUrls.map((url, index) => ({
+                public_id: `product_${Date.now()}_${index}`,
+                url: url,
+                alt: formData.name,
+                isMain: index === 0
+            }));
+            console.log('➕ Added', imageUrls.length, 'images');
+        }
+
+        // Add tags if selected
+        if (selectedTags.length > 0) {
+            cleanFormData.tags = selectedTags;
+            console.log('➕ Added', selectedTags.length, 'tags:', selectedTags);
+        }
+
+        // ✅ Add createdBy field (required)
+        if (currentUser && currentUser._id) {
+            cleanFormData.createdBy = currentUser._id;
+            console.log('➕ Added createdBy:', currentUser._id);
+        } else {
+            console.log('⚠️ No currentUser._id found:', currentUser);
+        }
+
+        console.log('📤 Final product data being sent:', cleanFormData);
+        console.log('🌐 Making API call to create product...');
+
+        const response = await apiCall('/products', {
+            method: 'POST',
+            body: JSON.stringify(cleanFormData)
+        });
+
+        console.log('✅ Product creation API response:', response);
+        showAlert('✅ Product created successfully!', 'success');
+        hideAddProductForm();
+        loadProducts(); // Refresh products list
+        
+        console.log('🎉 Product created successfully:', response);
+
+    } catch (error) {
+        console.error('❌ Product creation error details:', error);
+        console.error('❌ Error stack:', error.stack);
+        showAlert('❌ Error creating product: ' + error.message, 'error');
+        
+        // Add more detailed error logging
+        if (error.message.includes('fetch')) {
+            console.log('🌐 Network error - check if backend is running');
+        }
+        if (error.message.includes('validation')) {
+            console.log('📝 Validation error - check required fields');
+        }
+        if (error.message.includes('auth')) {
+            console.log('🔐 Authentication error - check login status');
+        }
+    }
+}
+
+// ===== EXISTING ADMIN ACTIONS =====
+
 async function updateOrderStatus(orderId, status) {
     console.log('Updating order status:', orderId, status);
     try {
@@ -449,9 +926,12 @@ function editProduct(productId) {
     showAlert('🔧 Product editing feature coming soon!', 'success');
 }
 
-// Initialize all event listeners
+// ✅ UPDATED Initialize all event listeners
 function initializeEventListeners() {
-    console.log('Initializing event listeners...');
+    console.log('🔧 Initializing event listeners...');
+    
+    // ✅ DEBUG: Mark as initialized
+    eventListenersInitialized = true;
     
     // Tab navigation using data-tab attributes
     document.querySelectorAll('.tab').forEach(tab => {
@@ -465,6 +945,8 @@ function initializeEventListeners() {
     document.addEventListener('click', function(e) {
         const action = e.target.getAttribute('data-action');
         if (!action) return;
+        
+        console.log('🎯 Action clicked:', action);
         
         switch(action) {
             case 'refresh-orders':
@@ -484,6 +966,14 @@ function initializeEventListeners() {
                 break;
             case 'hide-create-user':
                 hideCreateUserForm();
+                break;
+            case 'show-add-product':
+                console.log('🚀 Show add product clicked!');
+                showAddProductForm();
+                break;
+            case 'hide-add-product':
+                console.log('❌ Hide add product clicked!');
+                hideAddProductForm();
                 break;
             case 'logout':
                 logout();
@@ -520,8 +1010,109 @@ function initializeEventListeners() {
             }
         });
     }
+
+    // ✅ ENHANCED Product form submission with debugging
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        console.log('✅ Product form found, adding event listener...');
+        productForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('📝 Product form submitted!');
+            
+            // ✅ Prevent double submissions
+            if (isCreatingProduct) {
+                console.log('⚠️ Already creating product, ignoring submission');
+                return;
+            }
+            
+            isCreatingProduct = true;
+            
+            const formData = {
+                name: document.getElementById('productName').value,
+                sku: document.getElementById('productSku').value || undefined,
+                description: document.getElementById('productDescription').value,
+                price: parseFloat(document.getElementById('productPrice').value),
+                comparePrice: parseFloat(document.getElementById('productComparePrice').value) || undefined,
+                costPrice: parseFloat(document.getElementById('productCostPrice').value) || undefined,
+                inventory: {
+                    quantity: parseInt(document.getElementById('productStock').value),
+                    lowStockAlert: parseInt(document.getElementById('productMinStock').value) || 5,
+                    trackQuantity: true
+                },
+                weight: parseFloat(document.getElementById('productWeight').value) || undefined,
+                category: document.getElementById('productCategory').value, // ✅ This will be an ObjectId
+                status: document.getElementById('productStatus').value,
+                seo: {
+                    title: document.getElementById('productMetaTitle').value || undefined,
+                    description: document.getElementById('productMetaDescription').value || undefined
+                }
+            };
+
+            console.log('📋 Form data collected:', formData);
+            
+            try {
+                await createProduct(formData);
+            } catch (error) {
+                console.error('❌ Product creation failed:', error);
+                showAlert('❌ Failed to create product: ' + error.message, 'error');
+            } finally {
+                isCreatingProduct = false;
+            }
+        });
+    } else {
+        console.log('❌ Product form not found!');
+    }
+
+    // Tag input handling
+    const tagInputField = document.getElementById('tagInputField');
+    if (tagInputField) {
+        tagInputField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const tag = this.value.trim();
+                if (tag) {
+                    addTag(tag);
+                    this.value = '';
+                }
+            }
+        });
+    }
+
+    // Image upload handling
+    const productImages = document.getElementById('productImages');
+    if (productImages) {
+        productImages.addEventListener('change', function(e) {
+            handleImageUpload(e.target.files);
+        });
+    }
+
+    // ✅ Add category selection handling
+    handleCategorySelection();
+
+    // Drag and drop for images
+    const imageUploadArea = document.querySelector('.image-upload-area');
+    if (imageUploadArea) {
+        imageUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#667eea';
+            this.style.background = '#f0f4ff';
+        });
+
+        imageUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#ccc';
+            this.style.background = '#fafafa';
+        });
+
+        imageUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#ccc';
+            this.style.background = '#fafafa';
+            handleImageUpload(e.dataTransfer.files);
+        });
+    }
     
-    console.log('Event listeners initialized');
+    console.log('✅ Event listeners initialized successfully');
 }
 
 // Utility functions
@@ -552,6 +1143,8 @@ window.updateOrderStatus = updateOrderStatus;
 window.toggleUserStatus = toggleUserStatus;
 window.showCreateUserForm = showCreateUserForm;
 window.hideCreateUserForm = hideCreateUserForm;
+window.showAddProductForm = showAddProductForm;
+window.hideAddProductForm = hideAddProductForm;
 window.editProduct = editProduct;
 window.loadOrders = loadOrders;
 window.loadUsers = loadUsers;
@@ -559,3 +1152,8 @@ window.loadProducts = loadProducts;
 window.loadAnalytics = loadAnalytics;
 window.logout = logout;
 window.showTab = showTab;
+window.addTag = addTag;
+window.removeTag = removeTag;
+window.removeImage = removeImage;
+
+console.log('✅ Category management functions loaded!');
