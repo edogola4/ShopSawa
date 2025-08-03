@@ -85,19 +85,102 @@ const upload = multer({
   }
 });
 
-// ✅ UPLOAD ENDPOINT with comprehensive error handling
-router.post('/upload', (req, res) => {
-  console.log('🚀 Upload endpoint called');
-  console.log('📋 Request headers:', req.headers);
+// ✅ FIXED: Single image upload endpoint (matches frontend expectation)
+router.post('/upload', protect, restrictTo('admin', 'super_admin'), (req, res) => {
+  console.log('🚀 Single image upload endpoint called');
+  console.log('📋 Request headers authorization:', req.headers.authorization ? 'present' : 'missing');
+  console.log('👤 User from auth middleware:', req.user ? req.user.id : 'no user');
   
-  // Use multer middleware with error handling
-  upload.array('images', 5)(req, res, (err) => {
+  // ✅ Use single file upload (matches frontend formData.append('image', file))
+  upload.single('image')(req, res, (err) => {
     if (err) {
       console.error('❌ Multer middleware error:', err);
       
       if (err instanceof multer.MulterError) {
         console.error('❌ Multer-specific error:', err.code, err.message);
         
+        let errorMessage = 'File upload failed';
+        let statusCode = 400;
+        
+        switch (err.code) {
+          case 'LIMIT_FILE_SIZE':
+            errorMessage = 'File too large. Maximum size is 5MB.';
+            break;
+          case 'LIMIT_UNEXPECTED_FILE':
+            errorMessage = 'Expected field name "image".';
+            break;
+          default:
+            errorMessage = err.message;
+        }
+        
+        return res.status(statusCode).json({
+          status: 'error',
+          message: errorMessage,
+          error: err.code
+        });
+      }
+      
+      // Other errors (file type, etc.)
+      return res.status(400).json({
+        status: 'error',
+        message: err.message || 'Upload failed',
+        error: err.toString()
+      });
+    }
+
+    try {
+      console.log('📸 Processing single image upload...');
+      
+      if (!req.file) {
+        console.log('⚠️ No file in request');
+        return res.status(400).json({
+          status: 'error',
+          message: 'No image file provided'
+        });
+      }
+
+      console.log('📁 File received:', {
+        originalname: req.file.originalname,
+        filename: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+
+      // ✅ Format response to match frontend expectation
+      const fileUrl = `/uploads/${req.file.filename}`;
+      console.log(`✅ Image processed successfully: ${req.file.originalname} -> ${fileUrl}`);
+      
+      // ✅ Response format that matches frontend expectation
+      res.status(200).json({
+        status: 'success',
+        data: {
+          url: fileUrl,
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          size: req.file.size
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Upload processing error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Upload processing failed',
+        error: error.message
+      });
+    }
+  });
+});
+
+// ✅ ADDITIONAL: Multiple images upload endpoint (for future use)
+router.post('/upload-multiple', protect, restrictTo('admin', 'super_admin'), (req, res) => {
+  console.log('🚀 Multiple images upload endpoint called');
+  
+  upload.array('images', 5)(req, res, (err) => {
+    if (err) {
+      console.error('❌ Multer middleware error:', err);
+      
+      if (err instanceof multer.MulterError) {
         let errorMessage = 'File upload failed';
         let statusCode = 400;
         
@@ -122,7 +205,6 @@ router.post('/upload', (req, res) => {
         });
       }
       
-      // Other errors (file type, etc.)
       return res.status(400).json({
         status: 'error',
         message: err.message || 'Upload failed',
@@ -131,8 +213,7 @@ router.post('/upload', (req, res) => {
     }
 
     try {
-      console.log('📸 Upload endpoint processing...');
-      console.log('📁 Files received:', req.files?.length || 0);
+      console.log('📸 Processing multiple images upload...');
       
       if (!req.files || req.files.length === 0) {
         console.log('⚠️ No files in request');
@@ -142,7 +223,6 @@ router.post('/upload', (req, res) => {
         });
       }
 
-      // Process uploaded files
       const uploadedFiles = req.files.map(file => {
         const fileUrl = `/uploads/${file.filename}`;
         console.log(`✅ File processed: ${file.originalname} -> ${fileUrl}`);
@@ -150,14 +230,13 @@ router.post('/upload', (req, res) => {
         return {
           originalName: file.originalname,
           filename: file.filename,
-          path: file.path,
           url: fileUrl,
           size: file.size,
           mimetype: file.mimetype
         };
       });
 
-      console.log('🎉 Upload successful! Files:', uploadedFiles.length);
+      console.log('🎉 Multiple upload successful! Files:', uploadedFiles.length);
       res.status(200).json({
         status: 'success',
         message: 'Files uploaded successfully',
@@ -175,6 +254,45 @@ router.post('/upload', (req, res) => {
       });
     }
   });
+});
+
+// ✅ DELETE uploaded file endpoint
+router.delete('/upload/:filename', protect, restrictTo('admin', 'super_admin'), (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    if (!filename) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Filename is required'
+      });
+    }
+
+    const filePath = path.join(__dirname, '../../public/uploads', filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('✅ File deleted successfully:', filename);
+      
+      res.status(200).json({
+        status: 'success',
+        message: 'File deleted successfully'
+      });
+    } else {
+      console.log('⚠️ File not found:', filename);
+      res.status(404).json({
+        status: 'error',
+        message: 'File not found'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error deleting file:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error deleting file',
+      error: error.message
+    });
+  }
 });
 
 // Public routes
