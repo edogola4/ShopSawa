@@ -176,4 +176,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Your Name - [@your_twitter](https://twitter.com/your_twitter) - your.email@example.com
 
-Project Link: [https://github.com/yourusername/ShopSawa](https://github.com/yourusername/ShopSawa)
+Project Link: [https://github.com/edogola4/ShopSawa](https://github.com/edogola4/ShopSawa)
