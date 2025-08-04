@@ -192,7 +192,7 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             type="text"
             name="firstName"
             label="First Name"
-            placeholder="John"
+            placeholder="Bran"
             value={formData.firstName}
             onChange={handleChange}
             error={errors.firstName}
@@ -205,7 +205,7 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             type="text"
             name="lastName"
             label="Last Name"
-            placeholder="Doe"
+            placeholder="Don"
             value={formData.lastName}
             onChange={handleChange}
             error={errors.lastName}
@@ -219,7 +219,7 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
           type="email"
           name="email"
           label="Email Address"
-          placeholder="john@example.com"
+          placeholder="brandon@example.com"
           value={formData.email}
           onChange={handleChange}
           error={errors.email}

@@ -1,4 +1,4 @@
-// frontend/src/components/common/Input.js
+// frontend/src/components/common/Input.js - FIXED VERSION
 
 /**
  * =============================================================================
@@ -10,7 +10,7 @@
 import React, { useState, forwardRef, useId } from 'react';
 import { Eye, EyeOff, AlertCircle, CheckCircle, X } from 'lucide-react';
 
-const Input = forwardRef(({
+  const Input = forwardRef(({
   label,
   error,
   helperText,
@@ -33,6 +33,9 @@ const Input = forwardRef(({
   inputClassName = '',
   errorClassName = '',
   helperClassName = '',
+  // Legacy prop support
+  icon = null,
+  rightIcon = null, // Add rightIcon prop
   ...props
 }, ref) => {
   
@@ -41,6 +44,10 @@ const Input = forwardRef(({
   const inputId = useId();
   const errorId = useId();
   const helperId = useId();
+
+  // Handle legacy icon props
+  const actualStartIcon = startIcon || icon;
+  const actualEndIcon = endIcon || rightIcon;
 
   // Determine actual input type
   const inputType = type === 'password' && showPassword ? 'text' : type;
@@ -144,8 +151,8 @@ const Input = forwardRef(({
     errorClasses,
     successClasses,
     fullWidth ? 'w-full' : '',
-    startIcon ? 'pl-10' : '',
-    (endIcon || clearable || (type === 'password' && showPasswordToggle)) ? 'pr-10' : '',
+    actualStartIcon ? 'pl-10' : '',
+    (actualEndIcon || clearable || (type === 'password' && showPasswordToggle)) ? 'pr-10' : '',
     inputClassName
   ].filter(Boolean).join(' ');
 
@@ -176,9 +183,9 @@ const Input = forwardRef(({
 
   // Render start icon
   const StartIcon = () => {
-    if (!startIcon) return null;
+    if (!actualStartIcon) return null;
     
-    const IconComponent = startIcon;
+    const IconComponent = actualStartIcon;
     return (
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
         <IconComponent 
@@ -189,9 +196,9 @@ const Input = forwardRef(({
     );
   };
 
-  // Render end icon(s)
+  // Render end icon(s) - FIXED VERSION
   const EndIcon = () => {
-    const hasEndIcon = endIcon;
+    const hasEndIcon = actualEndIcon;
     const hasClearButton = clearable && value && value.length > 0;
     const hasPasswordToggle = type === 'password' && showPasswordToggle;
     const hasSuccessIcon = !error && value && value.length > 0 && !hasEndIcon && !hasClearButton && !hasPasswordToggle;
@@ -203,13 +210,22 @@ const Input = forwardRef(({
 
     return (
       <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-        {/* Custom end icon */}
+        {/* Custom end icon - FIXED */}
         {hasEndIcon && (
-          <div className="pointer-events-none">
-            {React.createElement(endIcon, { 
-              className: `${iconSizes[size]} text-gray-400`,
-              'aria-hidden': true
-            })}
+          <div className="flex items-center">
+            {React.isValidElement(actualEndIcon) ? (
+              // If endIcon is already a JSX element, render it directly
+              actualEndIcon
+            ) : typeof actualEndIcon === 'function' ? (
+              // If endIcon is a component function, render it as a component
+              React.createElement(actualEndIcon, { 
+                className: `${iconSizes[size]} text-gray-400`,
+                'aria-hidden': true
+              })
+            ) : (
+              // Fallback for other cases
+              actualEndIcon
+            )}
           </div>
         )}
         
@@ -297,7 +313,30 @@ const Input = forwardRef(({
               helperText ? helperId : null
             ].filter(Boolean).join(' ') || undefined
           }
-          {...props}
+          {...(function() {
+            // Filter out custom props that shouldn't be passed to DOM
+            const { 
+              label, 
+              error, 
+              helperText, 
+              size, 
+              variant, 
+              fullWidth, 
+              startIcon, 
+              endIcon, 
+              clearable, 
+              showPasswordToggle, 
+              onClear, 
+              labelClassName, 
+              inputClassName, 
+              errorClassName, 
+              helperClassName, 
+              icon, 
+              rightIcon,
+              ...domProps 
+            } = props;
+            return domProps;
+          })()}
         />
         
         <EndIcon />

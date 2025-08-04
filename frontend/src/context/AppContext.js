@@ -2,10 +2,8 @@
 
 /**
  * =============================================================================
- * APP CONTEXT
+ * APP CONTEXT - FIXED VERSION
  * =============================================================================
- * Main application context that combines all other contexts and provides
- * global application state management including navigation, themes, and UI state
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
@@ -15,9 +13,7 @@ import { ROUTES, FEATURES, STORAGE_KEYS, UI_CONFIG } from '../utils/constants';
 import { secureStorage, debounce } from '../utils/helpers';
 import productService from '../services/product.service';
 
-// =============================================================================
-// INITIAL STATE
-// =============================================================================
+// ... (keep all the initial state and action types the same) ...
 
 const initialState = {
   // Navigation
@@ -81,10 +77,6 @@ const initialState = {
   }
 };
 
-// =============================================================================
-// ACTION TYPES
-// =============================================================================
-
 const ActionTypes = {
   // Navigation
   NAVIGATE: 'NAVIGATE',
@@ -141,9 +133,7 @@ const ActionTypes = {
   APP_INITIALIZED: 'APP_INITIALIZED',
 };
 
-// =============================================================================
-// REDUCER
-// =============================================================================
+// ... (keep the same reducer) ...
 
 const appReducer = (state, action) => {
   switch (action.type) {
@@ -154,7 +144,7 @@ const appReducer = (state, action) => {
         currentRoute: action.payload.route,
         routeParams: action.payload.params || {},
         navigationHistory: [
-          ...state.navigationHistory.slice(-9), // Keep last 10 routes
+          ...state.navigationHistory.slice(-9),
           { route: action.payload.route, params: action.payload.params, timestamp: Date.now() }
         ]
       };
@@ -175,76 +165,40 @@ const appReducer = (state, action) => {
       };
 
     case ActionTypes.SET_THEME:
-      return {
-        ...state,
-        theme: action.payload.theme
-      };
+      return { ...state, theme: action.payload.theme };
 
     case ActionTypes.TOGGLE_SIDEBAR:
-      return {
-        ...state,
-        sidebarOpen: !state.sidebarOpen
-      };
+      return { ...state, sidebarOpen: !state.sidebarOpen };
 
     case ActionTypes.TOGGLE_MOBILE_MENU:
-      return {
-        ...state,
-        mobileMenuOpen: !state.mobileMenuOpen
-      };
+      return { ...state, mobileMenuOpen: !state.mobileMenuOpen };
 
     case ActionTypes.TOGGLE_SEARCH_MODAL:
-      return {
-        ...state,
-        searchModalOpen: !state.searchModalOpen
-      };
+      return { ...state, searchModalOpen: !state.searchModalOpen };
 
     case ActionTypes.SET_APP_LOADING:
-      return {
-        ...state,
-        appLoading: action.payload.loading
-      };
+      return { ...state, appLoading: action.payload.loading };
 
     case ActionTypes.SET_ROUTE_LOADING:
-      return {
-        ...state,
-        routeLoading: action.payload.loading
-      };
+      return { ...state, routeLoading: action.payload.loading };
 
     case ActionTypes.SET_PRODUCTS:
-      return {
-        ...state,
-        products: action.payload.products
-      };
+      return { ...state, products: action.payload.products };
 
     case ActionTypes.SET_CATEGORIES:
-      return {
-        ...state,
-        categories: action.payload.categories
-      };
+      return { ...state, categories: action.payload.categories };
 
     case ActionTypes.SET_FEATURED_PRODUCTS:
-      return {
-        ...state,
-        featuredProducts: action.payload.products
-      };
+      return { ...state, featuredProducts: action.payload.products };
 
     case ActionTypes.SET_SEARCH_QUERY:
-      return {
-        ...state,
-        searchQuery: action.payload.query
-      };
+      return { ...state, searchQuery: action.payload.query };
 
     case ActionTypes.SET_SEARCH_RESULTS:
-      return {
-        ...state,
-        searchResults: action.payload.results
-      };
+      return { ...state, searchResults: action.payload.results };
 
     case ActionTypes.SET_SEARCH_LOADING:
-      return {
-        ...state,
-        searchLoading: action.payload.loading
-      };
+      return { ...state, searchLoading: action.payload.loading };
 
     case ActionTypes.ADD_SEARCH_HISTORY:
       const newHistory = [
@@ -252,40 +206,22 @@ const appReducer = (state, action) => {
         ...state.searchHistory.filter(q => q !== action.payload.query)
       ].slice(0, UI_CONFIG.MAX_SEARCH_HISTORY);
       
-      return {
-        ...state,
-        searchHistory: newHistory
-      };
+      return { ...state, searchHistory: newHistory };
 
     case ActionTypes.CLEAR_SEARCH_HISTORY:
-      return {
-        ...state,
-        searchHistory: []
-      };
+      return { ...state, searchHistory: [] };
 
     case ActionTypes.SET_SELECTED_CATEGORY:
-      return {
-        ...state,
-        selectedCategory: action.payload.category
-      };
+      return { ...state, selectedCategory: action.payload.category };
 
     case ActionTypes.SET_PRICE_RANGE:
-      return {
-        ...state,
-        priceRange: action.payload.range
-      };
+      return { ...state, priceRange: action.payload.range };
 
     case ActionTypes.SET_SORT_BY:
-      return {
-        ...state,
-        sortBy: action.payload.sortBy
-      };
+      return { ...state, sortBy: action.payload.sortBy };
 
     case ActionTypes.SET_VIEW_MODE:
-      return {
-        ...state,
-        viewMode: action.payload.mode
-      };
+      return { ...state, viewMode: action.payload.mode };
 
     case ActionTypes.RESET_FILTERS:
       return {
@@ -305,34 +241,19 @@ const appReducer = (state, action) => {
       };
 
     case ActionTypes.SET_CURRENT_PAGE:
-      return {
-        ...state,
-        currentPage: action.payload.page
-      };
+      return { ...state, currentPage: action.payload.page };
 
     case ActionTypes.SET_ERROR:
-      return {
-        ...state,
-        error: action.payload.error
-      };
+      return { ...state, error: action.payload.error };
 
     case ActionTypes.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null
-      };
+      return { ...state, error: null };
 
     case ActionTypes.SET_NETWORK_STATUS:
-      return {
-        ...state,
-        networkStatus: action.payload.status
-      };
+      return { ...state, networkStatus: action.payload.status };
 
     case ActionTypes.ADD_NOTIFICATION:
-      return {
-        ...state,
-        notifications: [...state.notifications, action.payload.notification]
-      };
+      return { ...state, notifications: [...state.notifications, action.payload.notification] };
 
     case ActionTypes.REMOVE_NOTIFICATION:
       return {
@@ -341,170 +262,150 @@ const appReducer = (state, action) => {
       };
 
     case ActionTypes.CLEAR_NOTIFICATIONS:
-      return {
-        ...state,
-        notifications: []
-      };
+      return { ...state, notifications: [] };
 
     case ActionTypes.UPDATE_PERFORMANCE_METRICS:
       return {
         ...state,
-        performanceMetrics: {
-          ...state.performanceMetrics,
-          ...action.payload.metrics
-        }
+        performanceMetrics: { ...state.performanceMetrics, ...action.payload.metrics }
       };
 
     case ActionTypes.APP_INITIALIZED:
-      return {
-        ...state,
-        appLoading: false
-      };
+      return { ...state, appLoading: false };
 
     default:
       return state;
   }
 };
 
-// =============================================================================
-// CONTEXT CREATION
-// =============================================================================
-
 const AppContext = createContext(null);
-
-// =============================================================================
-// PROVIDER COMPONENT
-// =============================================================================
 
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, {
     ...initialState,
-    // Load persisted state
     theme: secureStorage.get(STORAGE_KEYS.THEME) || initialState.theme,
     searchHistory: secureStorage.get(STORAGE_KEYS.SEARCH_HISTORY) || initialState.searchHistory,
   });
 
-  // ===========================================================================
-  // NAVIGATION METHODS
-  // ===========================================================================
-
-  /**
-   * Navigate to a route
-   */
+  // Navigation methods (keep the same)
   const navigate = useCallback((route, params = {}) => {
-    dispatch({
-      type: ActionTypes.NAVIGATE,
-      payload: { route, params }
-    });
+    dispatch({ type: ActionTypes.NAVIGATE, payload: { route, params } });
   }, []);
 
-  /**
-   * Go back to previous route
-   */
   const goBack = useCallback(() => {
     dispatch({ type: ActionTypes.GO_BACK });
   }, []);
 
-  /**
-   * Update route parameters
-   */
   const setRouteParams = useCallback((params) => {
-    dispatch({
-      type: ActionTypes.SET_ROUTE_PARAMS,
-      payload: { params }
-    });
+    dispatch({ type: ActionTypes.SET_ROUTE_PARAMS, payload: { params } });
   }, []);
 
-  // ===========================================================================
-  // UI METHODS
-  // ===========================================================================
-
-  /**
-   * Toggle theme
-   */
+  // UI methods (keep the same)
   const toggleTheme = useCallback(() => {
     const newTheme = state.theme === 'light' ? 'dark' : 'light';
-    dispatch({
-      type: ActionTypes.SET_THEME,
-      payload: { theme: newTheme }
-    });
+    dispatch({ type: ActionTypes.SET_THEME, payload: { theme: newTheme } });
     secureStorage.set(STORAGE_KEYS.THEME, newTheme);
   }, [state.theme]);
 
-  /**
-   * Set theme
-   */
   const setTheme = useCallback((theme) => {
-    dispatch({
-      type: ActionTypes.SET_THEME,
-      payload: { theme }
-    });
+    dispatch({ type: ActionTypes.SET_THEME, payload: { theme } });
     secureStorage.set(STORAGE_KEYS.THEME, theme);
   }, []);
 
-  /**
-   * Toggle sidebar
-   */
   const toggleSidebar = useCallback(() => {
     dispatch({ type: ActionTypes.TOGGLE_SIDEBAR });
   }, []);
 
-  /**
-   * Toggle mobile menu
-   */
   const toggleMobileMenu = useCallback(() => {
     dispatch({ type: ActionTypes.TOGGLE_MOBILE_MENU });
   }, []);
 
-  /**
-   * Toggle search modal
-   */
   const toggleSearchModal = useCallback(() => {
     dispatch({ type: ActionTypes.TOGGLE_SEARCH_MODAL });
   }, []);
 
-  // ===========================================================================
-  // DATA METHODS
-  // ===========================================================================
-
   /**
-   * Load initial app data
+   * FIXED: Load initial app data with better error handling
    */
   const loadAppData = useCallback(async () => {
     dispatch({ type: ActionTypes.SET_APP_LOADING, payload: { loading: true } });
 
+    // Track what succeeded and what failed
+    const results = {
+      categories: { success: false, error: null },
+      featuredProducts: { success: false, error: null }
+    };
+
     try {
-      // Load categories
-      const categoriesResponse = await productService.getCategories();
-      if (categoriesResponse.success) {
+      // Load categories with individual error handling
+      try {
+        const categoriesResponse = await productService.getCategories();
+        if (categoriesResponse.success && Array.isArray(categoriesResponse.data)) {
+          dispatch({
+            type: ActionTypes.SET_CATEGORIES,
+            payload: { categories: categoriesResponse.data }
+          });
+          results.categories.success = true;
+        } else {
+          throw new Error('Invalid categories response');
+        }
+      } catch (error) {
+        console.warn('Failed to load categories:', error);
+        results.categories.error = error.message;
+        // Set empty categories as fallback
         dispatch({
           type: ActionTypes.SET_CATEGORIES,
-          payload: { categories: categoriesResponse.data }
+          payload: { categories: [] }
         });
       }
 
-      // Load featured products
-      const featuredResponse = await productService.getFeaturedProducts(8);
-      if (featuredResponse.success) {
+      // Load featured products with individual error handling  
+      try {
+        const featuredResponse = await productService.getFeaturedProducts(8);
+        if (featuredResponse.success && Array.isArray(featuredResponse.data)) {
+          dispatch({
+            type: ActionTypes.SET_FEATURED_PRODUCTS,
+            payload: { products: featuredResponse.data }
+          });
+          results.featuredProducts.success = true;
+        } else {
+          throw new Error('Invalid featured products response');
+        }
+      } catch (error) {
+        console.warn('Failed to load featured products:', error);
+        results.featuredProducts.error = error.message;
+        // Set empty featured products as fallback
         dispatch({
           type: ActionTypes.SET_FEATURED_PRODUCTS,
-          payload: { products: featuredResponse.data }
+          payload: { products: [] }
         });
       }
 
-      dispatch({ type: ActionTypes.APP_INITIALIZED });
+      // Show appropriate notifications based on what failed
+      if (!results.categories.success && !results.featuredProducts.success) {
+        dispatch({
+          type: ActionTypes.SET_ERROR,
+          payload: { error: 'Unable to load app data. Please check your connection.' }
+        });
+      } else if (!results.categories.success || !results.featuredProducts.success) {
+        // Partial failure - show warning but don't block the app
+        console.warn('Some app data failed to load:', results);
+      }
+
     } catch (error) {
-      console.error('Error loading app data:', error);
+      // This shouldn't happen now since we handle errors individually
+      console.error('Unexpected error loading app data:', error);
       dispatch({
         type: ActionTypes.SET_ERROR,
-        payload: { error: error.message }
+        payload: { error: 'Failed to initialize app. Please refresh the page.' }
       });
+    } finally {
       dispatch({ type: ActionTypes.APP_INITIALIZED });
     }
   }, []);
 
   /**
-   * Load products with filters
+   * FIXED: Load products with better error handling
    */
   const loadProducts = useCallback(async (filters = {}) => {
     const productFilters = {
@@ -524,35 +425,42 @@ export const AppProvider = ({ children }) => {
       if (response.success) {
         dispatch({
           type: ActionTypes.SET_PRODUCTS,
-          payload: { products: response.data }
+          payload: { products: response.data || [] }
         });
 
         dispatch({
           type: ActionTypes.SET_PAGINATION,
           payload: {
-            page: response.pagination.page,
-            pages: response.pagination.pages,
-            total: response.pagination.total
+            page: response.pagination?.page || 1,
+            pages: response.pagination?.pages || 1,
+            total: response.pagination?.total || 0
           }
         });
+      } else {
+        throw new Error(response.message || 'Failed to load products');
       }
 
       return response;
     } catch (error) {
+      console.error('Error loading products:', error);
+      
+      // Set empty products as fallback
+      dispatch({
+        type: ActionTypes.SET_PRODUCTS,
+        payload: { products: [] }
+      });
+      
       dispatch({
         type: ActionTypes.SET_ERROR,
-        payload: { error: error.message }
+        payload: { error: error.message || 'Failed to load products' }
       });
+      
       throw error;
     }
   }, [state.currentPage, state.searchQuery, state.selectedCategory, state.priceRange, state.sortBy]);
 
-  // ===========================================================================
-  // SEARCH METHODS
-  // ===========================================================================
-
   /**
-   * Perform search
+   * FIXED: Perform search with better error handling
    */
   const performSearch = useCallback(async (query) => {
     if (!query || query.trim().length < 2) {
@@ -574,7 +482,7 @@ export const AppProvider = ({ children }) => {
       if (response.success) {
         dispatch({
           type: ActionTypes.SET_SEARCH_RESULTS,
-          payload: { results: response.data }
+          payload: { results: response.data || [] }
         });
 
         // Add to search history
@@ -582,6 +490,8 @@ export const AppProvider = ({ children }) => {
           type: ActionTypes.ADD_SEARCH_HISTORY,
           payload: { query: query.trim() }
         });
+      } else {
+        throw new Error('Search failed');
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -589,126 +499,56 @@ export const AppProvider = ({ children }) => {
         type: ActionTypes.SET_SEARCH_RESULTS,
         payload: { results: [] }
       });
+      // Don't show error for search - just return empty results
     } finally {
       dispatch({ type: ActionTypes.SET_SEARCH_LOADING, payload: { loading: false } });
     }
   }, []);
 
-  /**
-   * Debounced search
-   */
+  // Debounced search
   const debouncedSearch = useCallback(
     debounce(performSearch, UI_CONFIG.SEARCH_DEBOUNCE_DELAY),
     [performSearch]
   );
 
-  /**
-   * Set search query
-   */
   const setSearchQuery = useCallback((query) => {
-    dispatch({
-      type: ActionTypes.SET_SEARCH_QUERY,
-      payload: { query }
-    });
-
-    // Perform debounced search
+    dispatch({ type: ActionTypes.SET_SEARCH_QUERY, payload: { query } });
     debouncedSearch(query);
   }, [debouncedSearch]);
 
-  /**
-   * Clear search
-   */
   const clearSearch = useCallback(() => {
-    dispatch({
-      type: ActionTypes.SET_SEARCH_QUERY,
-      payload: { query: '' }
-    });
-    dispatch({
-      type: ActionTypes.SET_SEARCH_RESULTS,
-      payload: { results: [] }
-    });
+    dispatch({ type: ActionTypes.SET_SEARCH_QUERY, payload: { query: '' } });
+    dispatch({ type: ActionTypes.SET_SEARCH_RESULTS, payload: { results: [] } });
   }, []);
 
-  // ===========================================================================
-  // FILTER METHODS
-  // ===========================================================================
-
-  /**
-   * Set selected category
-   */
+  // Filter methods (keep the same)
   const setSelectedCategory = useCallback((category) => {
-    dispatch({
-      type: ActionTypes.SET_SELECTED_CATEGORY,
-      payload: { category }
-    });
-    dispatch({
-      type: ActionTypes.SET_CURRENT_PAGE,
-      payload: { page: 1 }
-    });
+    dispatch({ type: ActionTypes.SET_SELECTED_CATEGORY, payload: { category } });
+    dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: { page: 1 } });
   }, []);
 
-  /**
-   * Set price range
-   */
   const setPriceRange = useCallback((range) => {
-    dispatch({
-      type: ActionTypes.SET_PRICE_RANGE,
-      payload: { range }
-    });
-    dispatch({
-      type: ActionTypes.SET_CURRENT_PAGE,
-      payload: { page: 1 }
-    });
+    dispatch({ type: ActionTypes.SET_PRICE_RANGE, payload: { range } });
+    dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: { page: 1 } });
   }, []);
 
-  /**
-   * Set sort option
-   */
   const setSortBy = useCallback((sortBy) => {
-    dispatch({
-      type: ActionTypes.SET_SORT_BY,
-      payload: { sortBy }
-    });
+    dispatch({ type: ActionTypes.SET_SORT_BY, payload: { sortBy } });
   }, []);
 
-  /**
-   * Set view mode
-   */
   const setViewMode = useCallback((mode) => {
-    dispatch({
-      type: ActionTypes.SET_VIEW_MODE,
-      payload: { mode }
-    });
+    dispatch({ type: ActionTypes.SET_VIEW_MODE, payload: { mode } });
   }, []);
 
-  /**
-   * Reset all filters
-   */
   const resetFilters = useCallback(() => {
     dispatch({ type: ActionTypes.RESET_FILTERS });
   }, []);
 
-  // ===========================================================================
-  // PAGINATION METHODS
-  // ===========================================================================
-
-  /**
-   * Set current page
-   */
   const setCurrentPage = useCallback((page) => {
-    dispatch({
-      type: ActionTypes.SET_CURRENT_PAGE,
-      payload: { page }
-    });
+    dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: { page } });
   }, []);
 
-  // ===========================================================================
-  // NOTIFICATION METHODS
-  // ===========================================================================
-
-  /**
-   * Add notification
-   */
+  // Notification methods (keep the same)
   const addNotification = useCallback((notification) => {
     const id = Date.now().toString();
     const notificationWithId = {
@@ -724,7 +564,6 @@ export const AppProvider = ({ children }) => {
       payload: { notification: notificationWithId }
     });
 
-    // Auto-remove notification
     if (notificationWithId.duration > 0) {
       setTimeout(() => {
         dispatch({
@@ -737,67 +576,34 @@ export const AppProvider = ({ children }) => {
     return id;
   }, []);
 
-  /**
-   * Remove notification
-   */
   const removeNotification = useCallback((id) => {
-    dispatch({
-      type: ActionTypes.REMOVE_NOTIFICATION,
-      payload: { id }
-    });
+    dispatch({ type: ActionTypes.REMOVE_NOTIFICATION, payload: { id } });
   }, []);
 
-  /**
-   * Clear all notifications
-   */
   const clearNotifications = useCallback(() => {
     dispatch({ type: ActionTypes.CLEAR_NOTIFICATIONS });
   }, []);
 
-  // ===========================================================================
-  // ERROR HANDLING
-  // ===========================================================================
-
-  /**
-   * Set error
-   */
   const setError = useCallback((error) => {
-    dispatch({
-      type: ActionTypes.SET_ERROR,
-      payload: { error }
-    });
+    dispatch({ type: ActionTypes.SET_ERROR, payload: { error } });
   }, []);
 
-  /**
-   * Clear error
-   */
   const clearError = useCallback(() => {
     dispatch({ type: ActionTypes.CLEAR_ERROR });
   }, []);
 
-  // ===========================================================================
-  // EFFECTS
-  // ===========================================================================
-
-  // Initialize app
+  // Effects (keep the same)
   useEffect(() => {
     loadAppData();
   }, [loadAppData]);
 
-  // Monitor network status
   useEffect(() => {
     const handleOnline = () => {
-      dispatch({
-        type: ActionTypes.SET_NETWORK_STATUS,
-        payload: { status: 'online' }
-      });
+      dispatch({ type: ActionTypes.SET_NETWORK_STATUS, payload: { status: 'online' } });
     };
 
     const handleOffline = () => {
-      dispatch({
-        type: ActionTypes.SET_NETWORK_STATUS,
-        payload: { status: 'offline' }
-      });
+      dispatch({ type: ActionTypes.SET_NETWORK_STATUS, payload: { status: 'offline' } });
     };
 
     window.addEventListener('online', handleOnline);
@@ -809,12 +615,10 @@ export const AppProvider = ({ children }) => {
     };
   }, []);
 
-  // Persist search history
   useEffect(() => {
     secureStorage.set(STORAGE_KEYS.SEARCH_HISTORY, state.searchHistory);
   }, [state.searchHistory]);
 
-  // Apply theme to document
   useEffect(() => {
     if (FEATURES.DARK_MODE_ENABLED) {
       if (state.theme === 'dark') {
@@ -825,20 +629,14 @@ export const AppProvider = ({ children }) => {
     }
   }, [state.theme]);
 
-  // Auto-clear errors
   useEffect(() => {
     if (state.error) {
       const timer = setTimeout(() => {
         clearError();
       }, 10000);
-
       return () => clearTimeout(timer);
     }
   }, [state.error, clearError]);
-
-  // ===========================================================================
-  // CONTEXT VALUE
-  // ===========================================================================
 
   const contextValue = {
     // State
@@ -906,10 +704,6 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-// =============================================================================
-// CUSTOM HOOK
-// =============================================================================
-
 export const useApp = () => {
   const context = useContext(AppContext);
   
@@ -920,6 +714,5 @@ export const useApp = () => {
   return context;
 };
 
-// Export context for testing
 export { AppContext };
 export default AppProvider;

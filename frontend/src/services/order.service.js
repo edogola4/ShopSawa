@@ -581,6 +581,8 @@ class OrderService {
 }
 
 // Create and export singleton instance
-const orderService = new OrderService();
+const orderServiceInstance = new OrderService();
+
+export const orderService = orderServiceInstance;
 
 export default orderService;

@@ -1,4 +1,4 @@
-// frontend/src/components/auth/LoginForm.js
+// frontend/src/components/auth/LoginForm.js - FIXED VERSION
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
@@ -149,7 +149,7 @@ const LoginForm = ({ onSuccess, redirectTo = '/' }) => {
           />
         </div>
 
-        {/* Password Field */}
+        {/* Password Field - FIXED VERSION */}
         <div>
           <Input
             type={showPassword ? 'text' : 'password'}
@@ -163,7 +163,7 @@ const LoginForm = ({ onSuccess, redirectTo = '/' }) => {
             required
             autoComplete="current-password"
             className="w-full"
-            rightIcon={
+            endIcon={
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}

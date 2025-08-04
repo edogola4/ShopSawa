@@ -193,6 +193,78 @@ export const API_CONFIG = {
     SESSION_TIMEOUT: parseInt(process.env.REACT_APP_SESSION_TIMEOUT) * 60 * 1000 || 30 * 60 * 1000, // 30 minutes
     TOKEN_REFRESH_THRESHOLD: 5 * 60 * 1000, // 5 minutes before expiry
   };
+
+  // =============================================================================
+// SHIPPING CONFIGURATION
+// =============================================================================
+export const SHIPPING_RATES = {
+  STANDARD: {
+    name: 'Standard Shipping',
+    rate: 300, // KES
+    estimatedDays: '3-5 business days',
+    freeThreshold: 5000 // Free shipping over KES 5000
+  },
+  EXPRESS: {
+    name: 'Express Shipping',
+    rate: 600, // KES
+    estimatedDays: '1-2 business days',
+    freeThreshold: 10000 // Free express shipping over KES 10000
+  },
+  SAME_DAY: {
+    name: 'Same Day Delivery',
+    rate: 1000, // KES
+    estimatedDays: 'Same day',
+    availability: 'Nairobi only',
+    cutoffTime: '14:00' // 2 PM cutoff
+  }
+};
+
+// =============================================================================
+// TAX RATES
+// =============================================================================
+export const TAX_RATE = 0.16; // 16% VAT for Kenya
+
+// =============================================================================
+// PRICE RANGES FOR FILTERING
+// =============================================================================
+export const PRICE_RANGES = [
+  {
+    id: 'under-1000',
+    label: 'Under KES 1,000',
+    min: 0,
+    max: 1000
+  },
+  {
+    id: '1000-2500',
+    label: 'KES 1,000 - 2,500',
+    min: 1000,
+    max: 2500
+  },
+  {
+    id: '2500-5000',
+    label: 'KES 2,500 - 5,000',
+    min: 2500,
+    max: 5000
+  },
+  {
+    id: '5000-10000',
+    label: 'KES 5,000 - 10,000',
+    min: 5000,
+    max: 10000
+  },
+  {
+    id: '10000-25000',
+    label: 'KES 10,000 - 25,000',
+    min: 10000,
+    max: 25000
+  },
+  {
+    id: 'over-25000',
+    label: 'Over KES 25,000',
+    min: 25000,
+    max: null
+  }
+];
   
   // =============================================================================
   // STATUS CONSTANTS
@@ -390,6 +462,9 @@ export const API_CONFIG = {
     STORAGE_KEYS,
     UI_CONFIG,
     BUSINESS_RULES,
+    SHIPPING_RATES,
+    TAX_RATE,
+    PRICE_RANGES,
     ORDER_STATUS,
     PAYMENT_STATUS,
     PRODUCT_STATUS,

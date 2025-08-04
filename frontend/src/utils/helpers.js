@@ -101,6 +101,16 @@ import {
   };
   
   /**
+ * Format currency for display (alias for formatPrice)
+ * @param {number} amount - Amount to format
+ * @param {object} options - Formatting options
+ * @returns {string} Formatted currency
+ */
+export const formatCurrency = (amount, options = {}) => {
+  return formatPrice(amount, options);
+};
+
+  /**
    * Escape special characters for safe HTML rendering
    * @param {string} str - String to escape
    * @returns {string} Escaped string
@@ -718,6 +728,8 @@ import {
     escapeHtml,
     generateSecureId,
     formatPrice,
+    formatCurrency,
+    //formatNumber,
     formatDate,
     formatRelativeTime,
     formatPhoneNumber,
