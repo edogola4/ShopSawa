@@ -303,7 +303,8 @@ export const PRICE_RANGES = [
   // VALIDATION PATTERNS
   // =============================================================================
   export const VALIDATION_PATTERNS = {
-    EMAIL: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+    // More permissive email pattern that accepts most valid email formats
+    EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     PHONE_KE: /^(\+254|254|0)([17][0-9]{8}|[79][0-9]{8})$/, // Kenyan phone number
     PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
     USERNAME: /^[a-zA-Z0-9._-]+$/,

@@ -1,11 +1,10 @@
-// frontend/src/context/AuthContext.js
+// frontend/src/context/AuthContext.js - COMPLETE FIXED VERSION
 
 /**
  * =============================================================================
- * AUTHENTICATION CONTEXT
+ * AUTHENTICATION CONTEXT - COMPLETE FIXED VERSION
  * =============================================================================
- * Manages global authentication state and provides auth-related functionality
- * throughout the application.
+ * Enhanced authentication state management with robust error handling
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
@@ -283,78 +282,139 @@ export const AuthProvider = ({ children }) => {
   // ===========================================================================
 
   /**
-   * Login user
+   * ENHANCED: Login user with better response handling
    */
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async (email, password, rememberMe = false) => {
     dispatch({ type: ActionTypes.LOGIN_START });
 
     try {
+      // ✅ Validate input
+      if (!email || !password) {
+        throw new Error('Email and password are required');
+      }
+
+      // ✅ Prepare credentials
+      const credentials = { 
+        email: email.trim().toLowerCase(), 
+        password: password.trim() 
+      };
+
+      // ✅ Debug logging (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 AuthContext - Login attempt:', {
+          email: credentials.email,
+          rememberMe
+        });
+      }
+
       const response = await authService.login(credentials);
       
-      if (response.success) {
-        const user = response.data?.user || authService.getStoredUser();
-        
+      // ✅ Enhanced response validation
+      if (response && response.success && response.user) {
         dispatch({
           type: ActionTypes.LOGIN_SUCCESS,
-          payload: { user }
+          payload: { user: response.user }
         });
 
         // Dispatch global login event
         window.dispatchEvent(new CustomEvent('auth:loginSuccess', {
-          detail: { user }
+          detail: { user: response.user }
         }));
 
-        return { success: true, user };
+        return { success: true, user: response.user };
       } else {
-        throw new Error(response.message || ERROR_MESSAGES.INVALID_CREDENTIALS);
+        // ✅ Handle unexpected response format
+        console.error('❌ Invalid login response:', response);
+        throw new Error('Invalid response from server');
       }
     } catch (error) {
-      const errorMessage = error.message || ERROR_MESSAGES.INVALID_CREDENTIALS;
+      console.error('❌ AuthContext - Login error:', error);
+      
+      // ✅ Extract user-friendly error message
+      let errorMessage = error.message || ERROR_MESSAGES.INVALID_CREDENTIALS;
+      
+      // Handle specific error types
+      if (error.status === 400) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.status === 429) {
+        errorMessage = 'Too many login attempts. Please try again later.';
+      } else if (error.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
       
       dispatch({
         type: ActionTypes.LOGIN_FAILURE,
         payload: { error: errorMessage }
       });
 
-      return { success: false, error: errorMessage };
+      // ✅ FIXED: Throw error for RegisterForm to catch
+      throw new Error(errorMessage);
     }
   }, []);
 
   /**
-   * Register new user
+   * ENHANCED: Register new user with better response handling
    */
   const register = useCallback(async (userData) => {
     dispatch({ type: ActionTypes.REGISTER_START });
 
     try {
+      // ✅ Validate input
+      if (!userData || !userData.email || !userData.password) {
+        throw new Error('Email and password are required');
+      }
+
+      // ✅ Debug logging (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 AuthContext - Registration attempt:', {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName
+        });
+      }
+
       const response = await authService.register(userData);
       
-      if (response.success) {
-        const user = response.data?.user || authService.getStoredUser();
-        
+      // ✅ Enhanced response validation
+      if (response && response.success && response.user) {
         dispatch({
           type: ActionTypes.REGISTER_SUCCESS,
-          payload: { user }
+          payload: { user: response.user }
         });
 
         // Dispatch global registration event
         window.dispatchEvent(new CustomEvent('auth:registerSuccess', {
-          detail: { user }
+          detail: { user: response.user }
         }));
 
-        return { success: true, user };
+        return { success: true, user: response.user };
       } else {
-        throw new Error(response.message || 'Registration failed');
+        console.error('❌ Invalid registration response:', response);
+        throw new Error('Invalid response from server');
       }
     } catch (error) {
-      const errorMessage = error.message || 'Registration failed';
+      console.error('❌ AuthContext - Registration error:', error);
+      
+      let errorMessage = error.message || 'Registration failed';
+      
+      // Handle specific error types
+      if (error.status === 400) {
+        errorMessage = error.message || 'Invalid registration data';
+      } else if (error.status === 409) {
+        errorMessage = 'Email already exists';
+      } else if (error.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
       
       dispatch({
         type: ActionTypes.REGISTER_FAILURE,
         payload: { error: errorMessage }
       });
 
-      return { success: false, error: errorMessage };
+      // ✅ FIXED: Throw error for RegisterForm to catch
+      throw new Error(errorMessage);
     }
   }, []);
 
@@ -394,7 +454,7 @@ export const AuthProvider = ({ children }) => {
       // Call API to update profile (you'll need to implement this in authService)
       const response = await authService.updateProfile(userData);
       
-      if (response.success) {
+      if (response && response.success) {
         dispatch({
           type: ActionTypes.USER_UPDATE,
           payload: { 
@@ -405,7 +465,7 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true, user: response.data.user };
       } else {
-        throw new Error(response.message || 'Profile update failed');
+        throw new Error(response?.message || 'Profile update failed');
       }
     } catch (error) {
       const errorMessage = error.message || 'Profile update failed';
@@ -426,7 +486,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.updatePassword(passwordData);
       
-      if (response.success) {
+      if (response && response.success) {
         dispatch({
           type: ActionTypes.SUCCESS_MESSAGE_SET,
           payload: { message: SUCCESS_MESSAGES.PASSWORD_UPDATED }
@@ -434,7 +494,7 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true };
       } else {
-        throw new Error(response.message || 'Password change failed');
+        throw new Error(response?.message || 'Password change failed');
       }
     } catch (error) {
       const errorMessage = error.message || 'Password change failed';
@@ -455,7 +515,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.forgotPassword(email);
       
-      if (response.success) {
+      if (response && response.success) {
         dispatch({
           type: ActionTypes.SUCCESS_MESSAGE_SET,
           payload: { message: 'Password reset email sent successfully' }
@@ -463,7 +523,7 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true };
       } else {
-        throw new Error(response.message || 'Password reset request failed');
+        throw new Error(response?.message || 'Password reset request failed');
       }
     } catch (error) {
       const errorMessage = error.message || 'Password reset request failed';
@@ -484,7 +544,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.resetPassword(token, password);
       
-      if (response.success) {
+      if (response && response.success) {
         dispatch({
           type: ActionTypes.SUCCESS_MESSAGE_SET,
           payload: { message: 'Password reset successfully' }
@@ -492,7 +552,7 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true };
       } else {
-        throw new Error(response.message || 'Password reset failed');
+        throw new Error(response?.message || 'Password reset failed');
       }
     } catch (error) {
       const errorMessage = error.message || 'Password reset failed';

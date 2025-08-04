@@ -1,4 +1,4 @@
-// frontend/src/components/auth/RegisterForm.js
+// frontend/src/components/auth/RegisterForm.js - COMPLETE FIXED VERSION
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Mail, Lock, Phone, ArrowRight, Check } from 'lucide-react';
@@ -28,6 +28,7 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
   });
   
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,12 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
       [name]: value
     }));
     
+    // Mark field as touched
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -52,11 +59,155 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
     }
   };
 
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+  };
+
   const handleAgreementChange = (name, checked) => {
     setAgreements(prev => ({
       ...prev,
       [name]: checked
     }));
+  };
+
+  // Only show error if field has been touched
+  const getError = (fieldName) => {
+    return touched[fieldName] ? errors[fieldName] : '';
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // First name validation
+    if (!formData.firstName) {
+      newErrors.firstName = 'First name is required';
+    } else if (validateName(formData.firstName)) {
+      newErrors.firstName = validateName(formData.firstName);
+    }
+
+    // Last name validation
+    if (!formData.lastName) {
+      newErrors.lastName = 'Last name is required';
+    } else if (validateName(formData.lastName)) {
+      newErrors.lastName = validateName(formData.lastName);
+    }
+
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (validateEmail(formData.email)) {
+      newErrors.email = validateEmail(formData.email);
+    }
+
+    // Phone validation - more lenient
+    if (!formData.phone) {
+      newErrors.phone = 'Phone number is required';
+    } else {
+      // Basic phone validation - just check if it has at least 8 digits
+      const phoneDigits = formData.phone.replace(/\D/g, '');
+      if (phoneDigits.length < 8) {
+        newErrors.phone = 'Please enter a valid phone number';
+      }
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else {
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        // Use the first error message from the validation
+        newErrors.password = passwordValidation.errors[0] || 'Invalid password';
+      }
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Terms agreement validation
+    if (!agreements.terms) {
+      newErrors.terms = 'You must agree to the Terms of Service';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Mark all fields as touched on submit
+    const allTouched = {};
+    Object.keys(formData).forEach(key => {
+      allTouched[key] = true;
+    });
+    allTouched.terms = true; // For terms checkbox
+    setTouched(allTouched);
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    // 🔍 DEBUG: Check what data we're sending
+    console.log('🔍 RegisterForm - Form data being sent:', {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      hasPassword: !!formData.password,
+      hasConfirmPassword: !!formData.confirmPassword,
+      passwordsMatch: formData.password === formData.confirmPassword
+    });
+
+    try {
+      setLoading(true);
+      
+      // ✅ FIXED: Ensure all required fields are included
+      const userData = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
+        password: formData.password,           // ✅ Include password
+        confirmPassword: formData.confirmPassword, // ✅ Include confirmPassword  
+        subscribeToNewsletter: agreements.newsletter
+      };
+
+      // 🔍 DEBUG: Check userData object
+      console.log('🔍 RegisterForm - userData object:', {
+        ...userData,
+        password: '***masked***',
+        confirmPassword: '***masked***'
+      });
+
+      await register(userData);
+      
+      showNotification('success', 'Account created successfully! Welcome to ShopSawa');
+      
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error('❌ RegisterForm - Registration error:', error);
+      
+      const errorMessage = error.message || 'Registration failed. Please try again.';
+      showNotification('error', errorMessage);
+      
+      // Set specific field errors if provided by backend
+      if (error.response?.data?.errors) {
+        setErrors(error.response.data.errors);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getPasswordStrength = (password) => {
@@ -81,99 +232,6 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
 
   const passwordStrength = getPasswordStrength(formData.password);
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    // First name validation
-    if (!formData.firstName) {
-      newErrors.firstName = 'First name is required';
-    } else if (!validateName(formData.firstName)) {
-      newErrors.firstName = 'Please enter a valid first name';
-    }
-
-    // Last name validation
-    if (!formData.lastName) {
-      newErrors.lastName = 'Last name is required';
-    } else if (!validateName(formData.lastName)) {
-      newErrors.lastName = 'Please enter a valid last name';
-    }
-
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    // Phone validation
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Please enter a valid phone number';
-    }
-
-    // Password validation
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (!validatePassword(formData.password)) {
-      newErrors.password = 'Password must be at least 8 characters with letters and numbers';
-    }
-
-    // Confirm password validation
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // Terms agreement validation
-    if (!agreements.terms) {
-      newErrors.terms = 'You must agree to the Terms of Service';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      const userData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        password: formData.password,
-        subscribeToNewsletter: agreements.newsletter
-      };
-
-      await register(userData);
-      
-      showNotification('success', 'Account created successfully! Welcome to ShopSawa');
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
-      showNotification('error', errorMessage);
-      
-      // Set specific field errors if provided by backend
-      if (error.response?.data?.errors) {
-        setErrors(error.response.data.errors);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
@@ -195,7 +253,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             placeholder="Bran"
             value={formData.firstName}
             onChange={handleChange}
-            error={errors.firstName}
+            onBlur={handleBlur}
+            error={getError('firstName')}
             icon={User}
             required
             autoComplete="given-name"
@@ -208,7 +267,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             placeholder="Don"
             value={formData.lastName}
             onChange={handleChange}
-            error={errors.lastName}
+            onBlur={handleBlur}
+            error={getError('lastName')}
             required
             autoComplete="family-name"
           />
@@ -222,7 +282,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
           placeholder="brandon@example.com"
           value={formData.email}
           onChange={handleChange}
-          error={errors.email}
+          onBlur={handleBlur}
+          error={getError('email')}
           icon={Mail}
           required
           autoComplete="email"
@@ -233,10 +294,11 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
           type="tel"
           name="phone"
           label="Phone Number"
-          placeholder="0712345678"
+          placeholder="e.g. 0712345678"
           value={formData.phone}
           onChange={handleChange}
-          error={errors.phone}
+          onBlur={handleBlur}
+          error={getError('phone')}
           icon={Phone}
           required
           autoComplete="tel"
@@ -251,7 +313,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             placeholder="Create a strong password"
             value={formData.password}
             onChange={handleChange}
-            error={errors.password}
+            onBlur={handleBlur}
+            error={getError('password')}
             icon={Lock}
             required
             autoComplete="new-password"
@@ -316,7 +379,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
           placeholder="Confirm your password"
           value={formData.confirmPassword}
           onChange={handleChange}
-          error={errors.confirmPassword}
+          onBlur={handleBlur}
+          error={getError('confirmPassword')}
           icon={Lock}
           required
           autoComplete="new-password"
@@ -357,8 +421,8 @@ const RegisterForm = ({ onSuccess, redirectTo = '/' }) => {
             </span>
           </label>
           
-          {errors.terms && (
-            <p className="text-sm text-red-600">{errors.terms}</p>
+          {getError('terms') && (
+            <p className="text-sm text-red-600">{getError('terms')}</p>
           )}
           
           <label className="flex items-start">

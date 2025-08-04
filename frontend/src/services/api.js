@@ -1,10 +1,10 @@
-// frontend/src/services/api.js - FINAL FIX FOR YOUR BACKEND
+// frontend/src/services/api.js - COMPLETE FIXED VERSION
 
 /**
  * =============================================================================
- * API SERVICE LAYER - FINAL FIX FOR SHOPSAWA BACKEND
+ * API SERVICE LAYER - COMPLETE FIXED VERSION
  * =============================================================================
- * Handles your specific backend response structure
+ * Handles your specific backend response structure with robust error handling
  */
 
 import { 
@@ -196,20 +196,30 @@ class ApiService {
   }
 
   /**
-   * FIXED: Normalize YOUR backend response structure to frontend expectations
+   * COMPLETE FIX: Normalize YOUR backend response structure
    */
   normalizeBackendResponse(response, requestUrl) {
     // Handle your specific backend response structure
     if (response && typeof response === 'object') {
       
-      // Case 1: Your backend's success response format
+      // Case 1: Your backend's success response format (status: "success")
       if (response.status === 'success') {
+        
+        // For AUTH endpoints - preserve token and handle user data
+        if (requestUrl.includes('/auth/')) {
+          return {
+            success: true,                    // ✅ Convert status to success
+            token: response.token,            // ✅ Preserve token
+            data: response.data || {},        // ✅ Preserve user data
+            message: response.message || 'Authentication successful'
+          };
+        }
         
         // For products endpoint - extract products array from data.products
         if (requestUrl.includes('/products') && response.data?.products) {
           return {
             success: true,
-            data: response.data.products, // Extract the products array
+            data: response.data.products,
             pagination: {
               page: 1,
               limit: response.results || response.data.products.length,
@@ -235,16 +245,18 @@ class ApiService {
           return {
             success: true,
             data: response.data,
+            token: response.token,            // ✅ Preserve token if present
             message: response.message || 'Data fetched successfully'
           };
         }
         
         // Default success case
         return {
-          success: true,
+          success: true,                      // ✅ Convert status to success
           data: response.data || [],
+          token: response.token,              // ✅ Preserve token if present
           pagination: response.pagination,
-          message: response.message || 'Data fetched successfully'
+          message: response.message || 'Operation successful'
         };
       }
       
@@ -300,7 +312,7 @@ class ApiService {
       try {
         const response = await this.executeRequest(modifiedConfig);
         
-        // FIXED: Use your backend-specific response normalizer
+        // ✅ FIXED: Use your backend-specific response normalizer
         const normalizedResponse = this.normalizeBackendResponse(response, modifiedConfig.url);
         
         return await this.executeResponseInterceptors(normalizedResponse);
@@ -379,26 +391,121 @@ class ApiService {
     }
   }
 
+  /**
+   * COMPLETE FIX: Enhanced response handling with robust error handling
+   */
   async handleResponse(response) {
     let data;
+    let responseText;
 
     try {
-      const contentType = response.headers.get('content-type');
+      // Get the raw response text first
+      responseText = await response.text();
       
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        data = await response.text();
+      // Log the raw response for debugging (development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 API Response Debug:', {
+          url: response.url,
+          status: response.status,
+          contentType: response.headers.get('content-type'),
+          responseText: responseText.substring(0, 200) + (responseText.length > 200 ? '...' : '')
+        });
       }
-    } catch (parseError) {
-      throw new Error('Failed to parse response');
+      
+      // Try to parse as JSON
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          console.error('❌ JSON Parse Error:', parseError);
+          console.error('📄 Raw response:', responseText);
+          
+          // Handle malformed JSON - extract meaningful error
+          let errorMessage = 'Invalid response from server';
+          
+          // Try to extract error message from malformed response
+          if (responseText.includes('email') || responseText.includes('password') || responseText.includes('validation')) {
+            // Looks like a validation error message
+            errorMessage = `Validation error: ${responseText.replace(/^["']|["']$/g, '').substring(0, 100)}`;
+          } else if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+            // HTML error page
+            errorMessage = 'Server error - received HTML instead of JSON';
+          } else {
+            // Plain text error
+            errorMessage = responseText.replace(/^["']|["']$/g, '').substring(0, 100);
+          }
+          
+          // Create structured error response
+          data = {
+            status: 'error',
+            message: errorMessage,
+            originalResponse: responseText
+          };
+        }
+      } else {
+        // Non-JSON response (HTML error page, plain text, etc.)
+        console.warn('⚠️ Non-JSON response received:', {
+          contentType,
+          status: response.status,
+          text: responseText.substring(0, 100)
+        });
+        
+        data = {
+          status: 'error',
+          message: responseText.substring(0, 200),
+          isTextResponse: true
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error processing response:', error);
+      throw new Error(`Failed to process server response: ${error.message}`);
     }
 
+    // Handle error responses (4xx, 5xx)
     if (!response.ok) {
-      const error = new Error(data.message || `HTTP ${response.status}`);
+      let errorMessage = `HTTP ${response.status}`;
+      
+      // Extract error message based on response structure
+      if (typeof data === 'string') {
+        errorMessage = data;
+      } else if (data?.message) {
+        errorMessage = data.message;
+      } else if (data?.error) {
+        errorMessage = data.error;
+      } else if (data?.errors) {
+        // Handle validation errors object
+        if (typeof data.errors === 'object') {
+          const firstError = Object.values(data.errors)[0];
+          errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+        } else {
+          errorMessage = data.errors;
+        }
+      } else if (data?.isTextResponse && data?.message) {
+        // Handle HTML error pages or text responses
+        errorMessage = `Server error: ${data.message.substring(0, 100)}...`;
+      }
+      
+      // Clean up error message
+      errorMessage = errorMessage.replace(/^["']|["']$/g, ''); // Remove quotes
+      
+      const error = new Error(errorMessage);
       error.status = response.status;
       error.data = data;
+      error.responseText = responseText;
       error.config = { url: response.url };
+      
+      // Log full error details in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ API Error Details:', {
+          status: response.status,
+          url: response.url,
+          message: errorMessage,
+          responseText: responseText,
+          data: data
+        });
+      }
+      
       throw error;
     }
 
