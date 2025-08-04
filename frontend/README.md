@@ -323,7 +323,7 @@ This frontend is designed to work with your existing ShopSawa backend:
 ### **Getting Help**
 - Check the [issues](https://github.com/your-username/shopsawa-frontend/issues) page
 - Review the [backend documentation](https://github.com/your-username/shopsawa-backend)
-- Contact: your-email@example.com
+- Contact: edogola4@gmail.com
 
 ## 📄 License
 
@@ -332,3 +332,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Built with ❤️ for ShopSawa E-commerce Platform**
+
+Your Name - Bran Don
