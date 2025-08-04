@@ -174,6 +174,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - your.email@example.com
+Your Name - Bran Don
 
 Project Link: [https://github.com/edogola4/ShopSawa](https://github.com/edogola4/ShopSawa)
