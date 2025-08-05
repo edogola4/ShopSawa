@@ -1,13 +1,31 @@
-// frontend/src/services/product.service.js
+// frontend/src/services/product.service.js - COMPLETE WITH getProductById
 
 /**
  * =============================================================================
- * PRODUCT SERVICE - FIXED VERSION
+ * PRODUCT SERVICE - COMPLETE FIXED VERSION
  * =============================================================================
  */
 
 import apiService from './api';
 import { API_ENDPOINTS, UI_CONFIG } from '../utils/constants';
+
+// ✅ FALLBACK CONSTANTS in case they're missing from constants file
+const FALLBACK_UI_CONFIG = {
+  ITEMS_PER_PAGE: 12
+};
+
+const FALLBACK_API_ENDPOINTS = {
+  PRODUCTS: {
+    BASE: '/products'
+  },
+  CATEGORIES: {
+    BASE: '/categories'
+  }
+};
+
+// Use fallbacks if constants are undefined
+const safeUIConfig = UI_CONFIG || FALLBACK_UI_CONFIG;
+const safeAPIEndpoints = API_ENDPOINTS || FALLBACK_API_ENDPOINTS;
 
 class ProductService {
   /**
@@ -81,6 +99,55 @@ class ProductService {
       }
 
       return this.formatProductsResponse(response);
+    } catch (error) {
+      throw this.handleProductError(error);
+    }
+  }
+
+  /**
+   * ✅ ADDED: Get single product by ID
+   */
+  async getProductById(productId) {
+    try {
+      if (!productId) {
+        throw new Error('Product ID is required');
+      }
+
+      console.log('🔍 Fetching product by ID:', productId);
+
+      // Construct the URL for single product
+      const productUrl = `${API_ENDPOINTS.PRODUCTS.BASE}/${productId}`;
+      
+      const response = await apiService.get(productUrl, {
+        includeAuth: false
+      });
+
+      console.log('📦 Product response:', response);
+
+      return this.formatProductResponse(response);
+    } catch (error) {
+      console.error('❌ Failed to fetch product:', error);
+      throw this.handleProductError(error);
+    }
+  }
+
+  /**
+   * ✅ ADDED: Search products
+   */
+  async searchProducts(query, options = {}) {
+    try {
+      const {
+        limit = 10,
+        page = 1,
+        ...otherOptions
+      } = options;
+
+      return await this.getProducts({
+        search: query,
+        limit,
+        page,
+        ...otherOptions
+      });
     } catch (error) {
       throw this.handleProductError(error);
     }
@@ -236,6 +303,47 @@ class ProductService {
         data: [], // Return empty array as fallback
         message: 'No categories available'
       };
+    }
+  }
+
+  /**
+   * ✅ ADDED: Get products by category
+   */
+  async getProductsByCategory(categoryId, params = {}) {
+    try {
+      return await this.getProducts({
+        ...params,
+        category: categoryId
+      });
+    } catch (error) {
+      throw this.handleProductError(error);
+    }
+  }
+
+  /**
+   * ✅ ADDED: Get related products
+   */
+  async getRelatedProducts(productId, limit = 4) {
+    try {
+      // This is a simplified version - you might want to implement
+      // more sophisticated related product logic on the backend
+      const response = await this.getProducts({
+        limit,
+        page: 1,
+        sortBy: 'newest'
+      });
+
+      // Filter out the current product
+      const filteredProducts = response.data.filter(
+        product => product._id !== productId
+      );
+
+      return {
+        ...response,
+        data: filteredProducts.slice(0, limit)
+      };
+    } catch (error) {
+      throw this.handleProductError(error);
     }
   }
 

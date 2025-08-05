@@ -1,13 +1,14 @@
-// frontend/src/components/layout/Header.js
+// frontend/src/components/layout/Header.js - FIXED NAVIGATION
 
 /**
  * =============================================================================
- * HEADER COMPONENT
+ * HEADER COMPONENT - FIXED FOR NAVIGATION
  * =============================================================================
  * Main navigation header with search, user menu, cart, and mobile support
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ ADDED: Direct React Router navigation
 import { 
   Search, 
   ShoppingCart, 
@@ -38,6 +39,8 @@ import { getInitials } from '../../utils/helpers';
 import { ROUTES } from '../../utils/constants';
 
 const Header = () => {
+  const navigate = useNavigate(); // ✅ FIXED: Use React Router's navigate directly
+  
   const { 
     user, 
     isAuthenticated, 
@@ -51,7 +54,6 @@ const Header = () => {
   } = useCart();
   
   const {
-    navigate,
     theme,
     toggleTheme,
     searchQuery,
@@ -75,8 +77,13 @@ const Header = () => {
     clearSearch
   } = useDebouncedSearch(
     async (query) => {
-      const response = await productService.searchProducts(query, { limit: 8 });
-      return response.success ? response.data : [];
+      try {
+        const response = await productService.searchProducts(query, { limit: 8 });
+        return response.success ? response.data : [];
+      } catch (error) {
+        console.error('Search error:', error);
+        return [];
+      }
     },
     300,
     { minLength: 2 }
@@ -92,7 +99,7 @@ const Header = () => {
 
   // Handle search result click
   const handleSearchResultClick = (product) => {
-    navigate(`${ROUTES.PRODUCTS}/${product._id}`);
+    navigate(`/products/${product._id}`);
     clearSearch();
     setShowSearchResults(false);
   };
@@ -101,16 +108,20 @@ const Header = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
-      navigate(ROUTES.PRODUCTS, { search: query });
+      navigate(`/products?search=${encodeURIComponent(query)}`);
       setShowSearchResults(false);
     }
   };
 
   // Handle user logout
   const handleLogout = async () => {
-    await logout();
-    setShowUserMenu(false);
-    navigate(ROUTES.HOME);
+    try {
+      await logout();
+      setShowUserMenu(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   // Close dropdowns when clicking outside
@@ -138,7 +149,7 @@ const Header = () => {
           {/* Logo */}
           <div className="flex items-center">
             <button
-              onClick={() => navigate(ROUTES.HOME)}
+              onClick={() => navigate('/')}
               className="flex items-center space-x-2 text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               <Package className="w-8 h-8 text-blue-600" />
@@ -195,7 +206,7 @@ const Header = () => {
                     <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2">
                       <button
                         onClick={() => {
-                          navigate(ROUTES.PRODUCTS, { search: query });
+                          navigate(`/products?search=${encodeURIComponent(query)}`);
                           setShowSearchResults(false);
                         }}
                         className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
@@ -303,7 +314,7 @@ const Header = () => {
                     <div className="py-1">
                       <button
                         onClick={() => {
-                          navigate(ROUTES.PROFILE);
+                          navigate('/profile');
                           setShowUserMenu(false);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -314,7 +325,7 @@ const Header = () => {
 
                       <button
                         onClick={() => {
-                          navigate(ROUTES.ORDERS);
+                          navigate('/orders');
                           setShowUserMenu(false);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -325,7 +336,7 @@ const Header = () => {
 
                       <button
                         onClick={() => {
-                          navigate(ROUTES.WISHLIST);
+                          navigate('/wishlist');
                           setShowUserMenu(false);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -336,8 +347,7 @@ const Header = () => {
 
                       <button
                         onClick={() => {
-                          // Navigate to addresses page
-                          navigate(`${ROUTES.PROFILE}/addresses`);
+                          navigate('/profile/addresses');
                           setShowUserMenu(false);
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -365,14 +375,14 @@ const Header = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate(ROUTES.LOGIN)}
+                  onClick={() => navigate('/login')} // ✅ FIXED: Direct navigation
                 >
                   Sign In
                 </Button>
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => navigate(ROUTES.REGISTER)}
+                  onClick={() => navigate('/register')} // ✅ FIXED: Direct navigation
                 >
                   Sign Up
                 </Button>
@@ -406,7 +416,7 @@ const Header = () => {
             {/* Mobile Navigation Links */}
             <button
               onClick={() => {
-                navigate(ROUTES.HOME);
+                navigate('/');
                 toggleMobileMenu();
               }}
               className="flex items-center w-full px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -417,7 +427,7 @@ const Header = () => {
 
             <button
               onClick={() => {
-                navigate(ROUTES.PRODUCTS);
+                navigate('/products');
                 toggleMobileMenu();
               }}
               className="flex items-center w-full px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -432,7 +442,7 @@ const Header = () => {
                 <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
                 <button
                   onClick={() => {
-                    navigate(ROUTES.LOGIN);
+                    navigate('/login'); // ✅ FIXED: Direct navigation
                     toggleMobileMenu();
                   }}
                   className="flex items-center w-full px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -442,7 +452,7 @@ const Header = () => {
                 </button>
                 <button
                   onClick={() => {
-                    navigate(ROUTES.REGISTER);
+                    navigate('/register'); // ✅ FIXED: Direct navigation
                     toggleMobileMenu();
                   }}
                   className="flex items-center w-full px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-md transition-colors font-medium"
@@ -468,7 +478,7 @@ const Header = () => {
 
                 <button
                   onClick={() => {
-                    navigate(ROUTES.PROFILE);
+                    navigate('/profile');
                     toggleMobileMenu();
                   }}
                   className="flex items-center w-full px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -479,7 +489,7 @@ const Header = () => {
 
                 <button
                   onClick={() => {
-                    navigate(ROUTES.ORDERS);
+                    navigate('/orders');
                     toggleMobileMenu();
                   }}
                   className="flex items-center w-full px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"

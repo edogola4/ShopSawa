@@ -1,3 +1,5 @@
+// frontend/src/hooks/useProduct.js 
+
 import { useState, useEffect } from 'react';
 import productService from '../services/product.service';
 

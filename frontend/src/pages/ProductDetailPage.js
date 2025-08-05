@@ -1,15 +1,37 @@
-
-import React from 'react';
+// frontend/src/pages/ProductDetailPage.js - COMPLETE FIXED VERSION
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useProduct } from '../hooks/useProduct';
 import { formatCurrency } from '../utils/helpers';
 import Button from '../components/common/Button';
 import { useCart } from '../context/CartContext';
+import { useNotification } from '../hooks/useNotification';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const { product, loading, error } = useProduct(id);
-  const { addToCart } = useCart();
+  const { addItem } = useCart(); // FIXED: Changed from addToCart to addItem
+  const { showNotification } = useNotification();
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  const handleAddToCart = async () => {
+    try {
+      setAddingToCart(true);
+      // FIXED: Use addItem with proper parameters
+      const result = await addItem(product, 1); // quantity = 1
+      
+      if (result.success) {
+        showNotification('success', `${product.name} added to cart!`);
+      } else {
+        showNotification('error', result.error || 'Failed to add item to cart');
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      showNotification('error', 'Failed to add item to cart');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
   if (loading) return <div className="p-4 text-center">Loading product details...</div>;
   if (error) return <div className="p-4 text-red-600">Error loading product: {error.message}</div>;
@@ -48,10 +70,12 @@ const ProductDetailPage = () => {
             </div>
             <div className="mt-6">
               <Button
-                onClick={() => addToCart({ ...product, quantity: 1 })}
+                onClick={handleAddToCart}
+                loading={addingToCart}
+                disabled={addingToCart}
                 className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
               >
-                Add to Cart
+                {addingToCart ? 'Adding to Cart...' : 'Add to Cart'}
               </Button>
             </div>
             <div className="mt-6">

@@ -1,13 +1,14 @@
-// frontend/src/components/layout/Layout.js
+// frontend/src/components/layout/Layout.js - FIXED VERSION
 
 /**
  * =============================================================================
- * LAYOUT COMPONENT
+ * LAYOUT COMPONENT - FIXED FOR REACT ROUTER V6
  * =============================================================================
  * Main layout wrapper that includes header, footer, and content area
  */
 
 import React, { useEffect } from 'react';
+import { Outlet } from 'react-router-dom'; // ✅ ADDED: Import Outlet
 import Header from './Header';
 import Footer from './Footer';
 import { NotificationContainer } from '../common/Notification';
@@ -15,7 +16,7 @@ import { LoadingOverlay } from '../common/LoadingSpinner';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 
-const Layout = ({ children, className = '', showFooter = true }) => {
+const Layout = ({ className = '', showFooter = true }) => {
   const { 
     notifications, 
     isOffline, 
@@ -87,7 +88,8 @@ const Layout = ({ children, className = '', showFooter = true }) => {
         role="main"
         id="main-content"
       >
-        {children}
+        {/* ✅ FIXED: Use Outlet instead of children for nested routes */}
+        <Outlet />
       </main>
 
       {/* Footer */}

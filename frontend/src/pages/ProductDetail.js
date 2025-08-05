@@ -1,4 +1,4 @@
-// frontend/src/pages/ProductDetail.js
+// frontend/src/pages/ProductDetail.js - DEBUG VERSION
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -30,7 +30,7 @@ import { formatCurrency, formatDate } from '../utils/helpers';
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addItem, isLoading: cartLoading } = useCart(); // Add cartLoading to check cart state
   const { user } = useAuth();
   const { showNotification } = useNotification();
 
@@ -42,6 +42,11 @@ const ProductDetailPage = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
+
+  // DEBUG: Log cart context state
+  console.log('Cart context values:', { addItem, cartLoading });
+  console.log('Product:', product);
+  console.log('Adding to cart state:', addingToCart);
 
   useEffect(() => {
     if (id) {
@@ -70,15 +75,57 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = async () => {
+    console.log('🚀 handleAddToCart called!'); // DEBUG
+    console.log('Product data:', product); // DEBUG
+    console.log('Quantity:', quantity); // DEBUG
+    console.log('addItem function:', addItem); // DEBUG
+
+    // Check if addItem exists
+    if (!addItem) {
+      console.error('❌ addItem function is not available');
+      alert('Cart function not available. Please refresh the page.');
+      return;
+    }
+
+    // Check if product exists
+    if (!product) {
+      console.error('❌ Product data is not available');
+      alert('Product data not loaded. Please refresh the page.');
+      return;
+    }
+
     try {
+      console.log('⏳ Setting addingToCart to true');
       setAddingToCart(true);
-      await addToCart(product._id, quantity);
-      showNotification('success', `${product.name} added to cart!`);
+      
+      console.log('🛒 Calling addItem with:', { product: product.name, quantity });
+      const result = await addItem(product, quantity);
+      
+      console.log('✅ addItem result:', result);
+      
+      if (result && result.success) {
+        console.log('🎉 Success! Showing notification');
+        showNotification('success', `${product.name} added to cart!`);
+      } else {
+        console.log('⚠️ addItem returned unsuccessful result:', result);
+        showNotification('error', result?.error || 'Failed to add item to cart');
+      }
     } catch (error) {
+      console.error('💥 Add to cart error:', error);
       showNotification('error', 'Failed to add item to cart');
+      
+      // Show more detailed error to user for debugging
+      alert(`Debug Error: ${error.message || 'Unknown error occurred'}`);
     } finally {
+      console.log('🏁 Setting addingToCart to false');
       setAddingToCart(false);
     }
+  };
+
+  // TEST BUTTON - Remove this after debugging
+  const testButton = () => {
+    console.log('🧪 Test button clicked!');
+    alert('Test button works!');
   };
 
   const handleAddToWishlist = async () => {
@@ -89,7 +136,6 @@ const ProductDetailPage = () => {
 
     try {
       setWishlistLoading(true);
-      // TODO: Implement wishlist API
       showNotification('info', 'Wishlist feature coming soon!');
     } catch (error) {
       showNotification('error', 'Failed to add to wishlist');
@@ -110,7 +156,6 @@ const ProductDetailPage = () => {
         console.log('Share canceled');
       }
     } else {
-      // Fallback to copying to clipboard
       navigator.clipboard.writeText(window.location.href);
       showNotification('success', 'Product link copied to clipboard!');
     }
@@ -176,6 +221,20 @@ const ProductDetailPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
+        {/* DEBUG SECTION - Remove after fixing */}
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+          <p><strong>Debug Info:</strong></p>
+          <p>addItem function: {addItem ? '✅ Available' : '❌ Not Available'}</p>
+          <p>Product loaded: {product ? '✅ Yes' : '❌ No'}</p>
+          <p>Adding to cart: {addingToCart ? '🔄 Yes' : '⭕ No'}</p>
+          <button 
+            onClick={testButton}
+            className="bg-yellow-500 text-white px-2 py-1 rounded text-sm mt-2"
+          >
+            Test Button Click
+          </button>
+        </div>
+
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8">
           <Link to="/" className="hover:text-blue-600">Home</Link>
@@ -454,6 +513,7 @@ const ProductDetailPage = () => {
           </div>
         </div>
 
+        {/* Rest of the component remains the same... */}
         {/* Product Details Tabs */}
         <div className="mt-16">
           <div className="border-b border-gray-200">
