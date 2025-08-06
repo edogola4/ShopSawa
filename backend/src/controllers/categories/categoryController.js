@@ -1,6 +1,7 @@
-// backend/src/controllers/categories/categoryController.js
+// backend/src/controllers/categories/categoryController.js - FIXED VERSION
 
 const Category = require('../../models/Category');
+const Product = require('../../models/Product'); // Add this import
 const catchAsync = require('../../utils/catchAsync');
 const AppError = require('../../utils/appError');
 const APIFeatures = require('../../utils/apiFeatures');
@@ -23,6 +24,59 @@ const getAllCategories = catchAsync(async (req, res, next) => {
     data: {
       categories,
     },
+  });
+});
+
+// ✅ ADD THIS NEW METHOD - This is what your frontend is calling
+const getCategoriesWithCounts = catchAsync(async (req, res, next) => {
+  console.log('🔄 Backend: Fetching categories with product counts...');
+  
+  // Get all active categories
+  const categories = await Category.find({ isActive: true })
+    .populate('parent', 'name slug')
+    .populate('createdBy', 'name email')
+    .sort({ sortOrder: 1, createdAt: -1 })
+    .lean(); // Use lean() for better performance
+
+  console.log(`📂 Found ${categories.length} categories`);
+
+  // Get product counts for each category in parallel
+  const categoriesWithCounts = await Promise.all(
+    categories.map(async (category) => {
+      try {
+        // Count active products in this category
+        const productCount = await Product.countDocuments({
+          category: category._id,
+          status: 'active'
+        });
+
+        console.log(`📊 Category "${category.name}": ${productCount} products`);
+
+        return {
+          ...category,
+          productCount: productCount,
+          count: productCount,        // ✅ Add count field
+          total: productCount         // ✅ Add total field
+        };
+      } catch (error) {
+        console.error(`❌ Error counting products for category ${category.name}:`, error);
+        return {
+          ...category,
+          productCount: 0,
+          count: 0,
+          total: 0
+        };
+      }
+    })
+  );
+
+  console.log('✅ Categories with counts processed successfully');
+
+  res.status(200).json({
+    status: 'success',
+    results: categoriesWithCounts.length,
+    data: categoriesWithCounts,
+    message: 'Categories with counts fetched successfully'
   });
 });
 
@@ -54,6 +108,14 @@ const getCategory = catchAsync(async (req, res, next) => {
   // Get subcategories separately
   const subcategories = await Category.getSubcategories(category._id);
   category.subcategories = subcategories;
+
+  // Get product count for this category
+  const productCount = await Product.countDocuments({
+    category: category._id,
+    status: 'active'
+  });
+
+  category.productCount = productCount;
 
   res.status(200).json({
     status: 'success',
@@ -126,8 +188,13 @@ const deleteCategory = catchAsync(async (req, res, next) => {
     return next(new AppError('Cannot delete category with subcategories', 400));
   }
 
-  // Check if category has products (you might want to handle this differently)
-  if (category.productCount > 0) {
+  // Check if category has products
+  const productCount = await Product.countDocuments({
+    category: category._id,
+    status: 'active'
+  });
+
+  if (productCount > 0) {
     return next(new AppError('Cannot delete category with products', 400));
   }
 
@@ -141,6 +208,7 @@ const deleteCategory = catchAsync(async (req, res, next) => {
 
 module.exports = {
   getAllCategories,
+  getCategoriesWithCounts,  // ✅ Export the new method
   getCategoryTree,
   getCategory,
   createCategory,

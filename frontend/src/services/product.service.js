@@ -271,9 +271,6 @@ class ProductService {
     }
   }
 
-  /**
-   * IMPROVED: Get categories with fallback
-   */
   async getCategories() {
     try {
       const response = await apiService.get(
@@ -419,6 +416,67 @@ class ProductService {
     if (product.comparePrice <= product.price) return 0;
     
     return Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100);
+  }
+
+  /**
+   * Get all categories with their product counts
+   * @returns {Promise<Object>} Object containing success status, data array, and message
+   */
+  async getCategoriesWithCounts() {
+    try {
+      // First, get all active products with their categories
+      console.log('🔍 Fetching all active products to count by category...');
+      const allProductsResponse = await apiService.get(API_ENDPOINTS.PRODUCTS.BASE, {
+        params: {
+          status: 'active',
+          limit: 1000, // Increase limit to get all products
+          fields: 'category' // Only fetch category field to reduce payload
+        },
+        includeAuth: false
+      });
+
+      // Count products by category
+      const productCounts = {};
+      const products = allProductsResponse?.data?.products || allProductsResponse?.data || [];
+      
+      products.forEach(product => {
+        const categoryId = product.category?._id || product.category;
+        if (categoryId) {
+          productCounts[categoryId] = (productCounts[categoryId] || 0) + 1;
+        }
+      });
+      
+      console.log('📊 Product counts by category:', productCounts);
+      
+      // Now get all categories and map the counts
+      const categoriesResponse = await this.getCategories();
+      const categories = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [];
+      
+      const categoriesWithCounts = categories.map(category => {
+        const count = productCounts[category._id] || 0;
+        console.log(`📦 Category ${category.name} (${category._id}): ${count} products`);
+        
+        return {
+          ...category,
+          productCount: count,
+          count: count,
+          total: count
+        };
+      });
+      
+      console.log('✅ Successfully processed all categories with counts');
+      
+      return {
+        success: true,
+        data: categoriesWithCounts,
+        message: 'Categories with counts fetched successfully',
+        results: categoriesWithCounts.length
+      };
+      
+    } catch (error) {
+      console.error('❌ Error in getCategoriesWithCounts:', error);
+      throw this.handleProductError(error);
+    }
   }
 
   /**

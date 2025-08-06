@@ -1,28 +1,57 @@
 // frontend/src/pages/CartPage.js
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowLeft, Trash2 } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Trash2, Loader2, Shield, Lock, CheckCircle2, Truck, ShieldCheck } from 'lucide-react';
 import Button from '../components/common/Button';
 import CartItem from '../components/cart/CartItem';
 import CartSummary from '../components/cart/CartSummary';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
+import { ROUTES } from '../utils/constants';
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const { cartItems, clearCart, cartTotal } = useCart();
+  const { 
+    cartItems, 
+    clearCart, 
+    summary,
+    isLoading,
+    loadCart 
+  } = useCart();
+  
   const { user } = useAuth();
   const { showNotification } = useNotification();
+
+  // Load cart data when component mounts or when cart changes
+  useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const result = await loadCart();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to load cart');
+        }
+      } catch (error) {
+        console.error('Error loading cart:', error);
+        showNotification('error', error.message || 'Failed to load cart');
+      }
+    };
+
+    fetchCart();
+  }, [loadCart, showNotification]);
 
   const handleCheckout = () => {
     if (!user) {
       showNotification('info', 'Please login to proceed with checkout');
-      navigate('/login?redirect=/checkout');
+      navigate(ROUTES.LOGIN, { state: { from: ROUTES.CHECKOUT } });
       return;
     }
-    navigate('/checkout');
+    if (cartItems.length === 0) {
+      showNotification('info', 'Your cart is empty');
+      return;
+    }
+    navigate(ROUTES.CHECKOUT);
   };
 
   const handleClearCart = async () => {
@@ -31,12 +60,21 @@ const CartPage = () => {
         await clearCart();
         showNotification('success', 'Cart cleared successfully');
       } catch (error) {
+        console.error('Error clearing cart:', error);
         showNotification('error', 'Failed to clear cart');
       }
     }
   };
 
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Calculate cart metrics
+  const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const uniqueItems = cartItems.length;
+  const subtotal = summary?.subtotal || 0;
+  const shipping = summary?.shipping || 0;
+  const tax = summary?.tax || 0;
+  const discount = summary?.discount || 0;
+  const total = summary?.total || 0;
+  const isCartEmpty = itemCount === 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -115,64 +153,168 @@ const CartPage = () => {
             {/* Cart Items List */}
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                  Cart Items ({itemCount})
-                </h2>
-                
-                <div className="space-y-4">
-                  {cartItems.map((item) => (
-                    <CartItem 
-                      key={item.product._id} 
-                      item={item} 
-                      showRemoveButton={true}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Continue Shopping */}
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-                <Button
-                  as={Link}
-                  to="/products"
-                  variant="outline"
-                  icon={ArrowLeft}
-                >
-                  Continue Shopping
-                </Button>
-                
-                <div className="text-sm text-gray-600">
-                  Need help? 
-                  <Link 
-                    to="/contact" 
-                    className="text-blue-600 hover:text-blue-700 font-medium ml-1"
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Your Cart ({itemCount} {itemCount === 1 ? 'Item' : 'Items'})
+                  </h2>
+                  <button
+                    onClick={handleClearCart}
+                    className="text-sm text-red-600 hover:text-red-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading || isCartEmpty}
                   >
-                    Contact us
-                  </Link>
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Clear Cart
+                  </button>
                 </div>
+                
+                {isLoading ? (
+                  <div className="flex justify-center items-center p-12">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                    <span className="ml-2 text-gray-600">Loading your cart...</span>
+                  </div>
+                ) : isCartEmpty ? (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="text-center py-12">
+                      <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
+                      <p className="text-gray-500 mb-6">Looks like you haven't added any items to your cart yet.</p>
+                      <Button
+                        as={Link}
+                        to={ROUTES.PRODUCTS}
+                        variant="primary"
+                        className="mx-auto"
+                      >
+                        Continue Shopping
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      {cartItems.map((item) => (
+                        <CartItem 
+                          key={`${item.product?._id || 'item'}-${item.variant?.id || 'variant'}`} 
+                          item={item} 
+                          showRemoveButton={true}
+                        />
+                      ))}
+                    </div>
+                    
+                    <div className="mt-6 flex justify-between items-center pt-4 border-t border-gray-200">
+                      <Link
+                        to={ROUTES.PRODUCTS}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-1" />
+                        Continue Shopping
+                      </Link>
+                      
+                      <div className="text-sm text-gray-600">
+                        Subtotal: <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Continue Shopping */}
+            <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+              <Button
+                as={Link}
+                to="/products"
+                variant="outline"
+                icon={ArrowLeft}
+              >
+                Continue Shopping
+              </Button>
+              
+              <div className="text-sm text-gray-600">
+                Need help? 
+                <Link 
+                  to="/contact" 
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Contact us
+                </Link>
               </div>
             </div>
 
             {/* Cart Summary */}
             <div className="lg:col-span-1">
-              <div className="sticky top-8">
-                <CartSummary 
-                  onCheckout={handleCheckout}
-                  showPromoCode={true}
-                />
+              <div className="sticky top-8 space-y-6">
+                {!isLoading && itemCount > 0 && (
+                  <>
+                    <CartSummary 
+                      subtotal={subtotal}
+                      shipping={shipping}
+                      tax={tax}
+                      discount={discount}
+                      total={total}
+                      itemCount={itemCount}
+                      onCheckout={handleCheckout}
+                      showPromoCode={true}
+                      isCheckoutLoading={isLoading}
+                      className="sticky top-8"
+                    />
+                    
+                    {/* Security & Trust Badges */}
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                        <h3 className="text-sm font-semibold text-blue-900 mb-2">
+                          Secure Checkout
+                        </h3>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Shield className="w-4 h-4 text-green-600" />
+                            <span className="text-xs text-gray-600">SSL Secured</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Lock className="w-4 h-4 text-green-600" />
+                            <span className="text-xs text-gray-600">256-bit Encryption</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-green-50 border border-green-100 rounded-lg">
+                        <h3 className="text-sm font-semibold text-green-900 mb-2">
+                          Shop With Confidence
+                        </h3>
+                        <ul className="text-xs text-green-800 space-y-1">
+                          <li className="flex items-start">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-600 mt-0.5 mr-1.5 flex-shrink-0" />
+                            <span>30-day money-back guarantee</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Truck className="w-3.5 h-3.5 text-green-600 mt-0.5 mr-1.5 flex-shrink-0" />
+                            <span>Free shipping on orders over KSh 2,000</span>
+                          </li>
+                          <li className="flex items-start">
+                            <ShieldCheck className="w-3.5 h-3.5 text-green-600 mt-0.5 mr-1.5 flex-shrink-0" />
+                            <span>Secure payment processing</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                )}
                 
-                {/* Security Features */}
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-2">
-                    Why Shop With Us?
-                  </h3>
-                  <ul className="text-xs text-blue-800 space-y-1">
-                    <li>✓ Secure SSL encrypted checkout</li>
-                    <li>✓ 30-day money-back guarantee</li>
-                    <li>✓ Free shipping over KSh 2,000</li>
-                    <li>✓ 24/7 customer support</li>
-                  </ul>
-                </div>
+                {itemCount === 0 && !isLoading && (
+                  <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">Need Help?</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Our customer service team is available to help with any questions.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      as={Link}
+                      to={ROUTES.CONTACT}
+                    >
+                      Contact Support
+                    </Button>
+                  </div>
+                )}
 
                 {/* Suggested Products */}
                 <div className="mt-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">

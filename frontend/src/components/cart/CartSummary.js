@@ -1,43 +1,58 @@
 // frontend/src/components/cart/CartSummary.js
 
-import React, { useState } from 'react';
-import { Tag, Truck, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Tag, Shield, Loader2, ArrowRight, Truck } from 'lucide-react';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import { formatCurrency } from '../../utils/helpers';
 import { useCart } from '../../context/CartContext';
 import { useNotification } from '../../hooks/useNotification';
-import { SHIPPING_RATES, TAX_RATE } from '../../utils/constants';
+import { SHIPPING_RATES } from '../../utils/constants';
+
+// Currency configuration
+const CURRENCY = 'KES';
 
 const CartSummary = ({ 
   onCheckout, 
+  subtotal = 0,
+  shipping = 0,
+  tax = 0,
+  discount = 0,
+  total = 0,
   isCheckout = false, 
   isLoading = false,
-  showPromoCode = true 
+  isCheckoutLoading = false,
+  showPromoCode = true,
+  className = ''
 }) => {
-  const { cartItems, cartTotal } = useCart();
+  const { cartItems, summary, applyCoupon, removeCoupon } = useCart();
   const { showNotification } = useNotification();
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Calculate totals
-  const subtotal = cartTotal;
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Use props if provided, otherwise calculate from cart
+  const calculatedSubtotal = subtotal !== undefined ? subtotal : (summary?.subtotal || 0);
+  const calculatedShipping = shipping !== undefined ? shipping : (summary?.shipping || 0);
+  const calculatedTax = tax !== undefined ? tax : (summary?.tax || 0);
+  const calculatedDiscount = discount !== undefined ? discount : (summary?.discount || 0);
+  const calculatedTotal = total !== undefined ? total : (summary?.total || 0);
   
-  // Calculate shipping
-  const getShippingCost = () => {
-    if (subtotal >= SHIPPING_RATES.FREE_SHIPPING_THRESHOLD) {
-      return 0;
-    }
-    return SHIPPING_RATES.STANDARD;
-  };
-
-  const shippingCost = getShippingCost();
-  const promoDiscount = appliedPromo ? (subtotal * appliedPromo.discount / 100) : 0;
-  const taxableAmount = subtotal - promoDiscount;
-  const tax = taxableAmount * TAX_RATE;
-  const total = subtotal + shippingCost + tax - promoDiscount;
+  // Calculate item count from cart items
+  const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  
+  // Calculate free shipping eligibility
+  const isEligibleForFreeShipping = calculatedSubtotal >= SHIPPING_RATES.FREE_SHIPPING_THRESHOLD;
+  const amountForFreeShipping = Math.max(0, SHIPPING_RATES.FREE_SHIPPING_THRESHOLD - calculatedSubtotal);
+  
+  // Calculate promo discount (if any promo is applied)
+  const promoDiscount = appliedPromo ? (calculatedSubtotal * (appliedPromo.discount || 0) / 100) : 0;
+  
+  // Calculate final values
+  const finalDiscount = calculatedDiscount + promoDiscount;
+  const finalShipping = isEligibleForFreeShipping ? 0 : calculatedShipping;
+  const finalTotal = Math.max(0, calculatedSubtotal + calculatedTax + finalShipping - finalDiscount);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -48,40 +63,58 @@ const CartSummary = ({
     try {
       setApplyingPromo(true);
       
-      // TODO: Replace with actual API call
-      // Mock promo codes for demonstration
-      const mockPromoCodes = {
-        'SAVE10': { code: 'SAVE10', discount: 10, description: '10% off your order' },
-        'WELCOME20': { code: 'WELCOME20', discount: 20, description: '20% off for new customers' },
-        'FREESHIP': { code: 'FREESHIP', discount: 0, description: 'Free shipping', freeShipping: true }
-      };
-
-      const promo = mockPromoCodes[promoCode.toUpperCase()];
+      // Call the actual API to apply the coupon
+      const result = await applyCoupon(promoCode.trim());
       
-      if (promo) {
-        setAppliedPromo(promo);
-        showNotification('success', `Promo code applied: ${promo.description}`);
+      if (result.success) {
+        // If the API returns the applied coupon info, use it
+        const appliedCoupon = result.data?.coupon || {
+          code: promoCode.toUpperCase(),
+          description: result.message || 'Discount applied',
+          discount: result.data?.discount || 0
+        };
+        
+        setAppliedPromo(appliedCoupon);
+        showNotification('success', `Promo code applied: ${appliedCoupon.description}`);
         setPromoCode('');
       } else {
-        showNotification('error', 'Invalid promo code');
+        showNotification('error', result.error || 'Invalid or expired promo code');
       }
     } catch (error) {
-      showNotification('error', 'Failed to apply promo code');
+      console.error('Error applying promo code:', error);
+      showNotification('error', error.message || 'Failed to apply promo code. Please try again.');
     } finally {
       setApplyingPromo(false);
     }
   };
+  
+  // Set mounted state for animations
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
-  const handleRemovePromo = () => {
-    setAppliedPromo(null);
-    showNotification('info', 'Promo code removed');
+  const handleRemovePromo = async () => {
+    if (!appliedPromo) return;
+    
+    try {
+      const result = await removeCoupon(appliedPromo.code);
+      if (result.success) {
+        setAppliedPromo(null);
+        showNotification('info', 'Promo code removed');
+      } else {
+        throw new Error(result.error || 'Failed to remove promo code');
+      }
+    } catch (error) {
+      console.error('Error removing promo code:', error);
+      showNotification('error', error.message || 'Failed to remove promo code');
+    }
   };
 
-  const isEligibleForFreeShipping = subtotal >= SHIPPING_RATES.FREE_SHIPPING_THRESHOLD;
-  const amountForFreeShipping = SHIPPING_RATES.FREE_SHIPPING_THRESHOLD - subtotal;
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm transition-all duration-300 ${className} ${
+      isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+    }`}>
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">
@@ -93,6 +126,55 @@ const CartSummary = ({
       </div>
 
       <div className="p-6 space-y-4">
+        {/* Order Summary */}
+        <div className="space-y-3 mt-6">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Subtotal</span>
+            <span className="font-medium" data-testid="subtotal">
+              {formatCurrency(calculatedSubtotal, CURRENCY)}
+            </span>
+          </div>
+          
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Shipping</span>
+            <span className="font-medium" data-testid="shipping">
+              {isEligibleForFreeShipping ? 'FREE' : formatCurrency(finalShipping, CURRENCY)}
+            </span>
+          </div>
+          
+          {calculatedTax > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Tax</span>
+              <span className="font-medium" data-testid="tax">
+                {formatCurrency(calculatedTax, CURRENCY)}
+              </span>
+            </div>
+          )}
+          
+          {finalDiscount > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Discount</span>
+              <span className="font-medium" data-testid="discount">
+                -{formatCurrency(finalDiscount, CURRENCY)}
+              </span>
+            </div>
+          )}
+          
+          <div className="border-t border-gray-200 pt-3 mt-3">
+            <div className="flex justify-between font-semibold text-base">
+              <span>Total</span>
+              <span data-testid="total">
+                {formatCurrency(finalTotal, CURRENCY)}
+              </span>
+            </div>
+            {finalTotal > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {CURRENCY} {formatCurrency(finalTotal, '')} including all taxes
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Promo Code Section */}
         {showPromoCode && !isCheckout && (
           <div className="space-y-3">
@@ -144,7 +226,7 @@ const CartSummary = ({
 
         {/* Free Shipping Banner */}
         {!isEligibleForFreeShipping && amountForFreeShipping > 0 && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mt-6">
             <div className="flex items-start gap-2">
               <Truck className="w-4 h-4 text-blue-600 mt-0.5" />
               <div>
@@ -152,88 +234,39 @@ const CartSummary = ({
                   Free Shipping Available!
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
-                  Add {formatCurrency(amountForFreeShipping)} more to qualify for free shipping
+                  Add {formatCurrency(amountForFreeShipping, CURRENCY)} more to qualify for free shipping
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Price Breakdown */}
-        <div className="space-y-3">
-          {/* Subtotal */}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Subtotal</span>
-            <span className="font-medium">{formatCurrency(subtotal)}</span>
-          </div>
-
-          {/* Promo Discount */}
-          {appliedPromo && promoDiscount > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-green-600">Discount ({appliedPromo.code})</span>
-              <span className="font-medium text-green-600">
-                -{formatCurrency(promoDiscount)}
-              </span>
-            </div>
-          )}
-
-          {/* Shipping */}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Shipping</span>
-            <span className="font-medium">
-              {shippingCost === 0 ? (
-                <span className="text-green-600">Free</span>
-              ) : (
-                formatCurrency(shippingCost)
-              )}
-            </span>
-          </div>
-
-          {/* Tax */}
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Tax</span>
-            <span className="font-medium">{formatCurrency(tax)}</span>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-200"></div>
-
-          {/* Total */}
-          <div className="flex justify-between text-base font-semibold">
-            <span className="text-gray-900">Total</span>
-            <span className="text-gray-900">{formatCurrency(total)}</span>
-          </div>
-        </div>
-
-        {/* Security Badge */}
-        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-          <Shield className="w-4 h-4 text-green-600" />
-          <span className="text-xs text-gray-600">
-            Secure checkout with 256-bit SSL encryption
-          </span>
-        </div>
-
         {/* Checkout Button */}
-        {!isCheckout && (
+        <div className="space-y-3 mt-6">
           <Button
             onClick={onCheckout}
-            loading={isLoading}
-            disabled={cartItems.length === 0}
-            className="w-full"
+            disabled={isLoading || isCheckoutLoading || itemCount === 0}
+            loading={isCheckoutLoading}
+            className="w-full h-12 text-base font-medium"
             size="lg"
           >
-            {isLoading ? 'Processing...' : `Checkout • ${formatCurrency(total)}`}
+            {isCheckout ? (
+              'Place Order'
+            ) : (
+              <>
+                Proceed to Checkout
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </>
+            )}
           </Button>
-        )}
-
-        {/* Checkout Additional Info */}
-        {!isCheckout && (
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
-              Taxes and shipping calculated at checkout
-            </p>
-          </div>
-        )}
+          
+          {!isCheckout && (
+            <div className="flex items-center justify-center text-xs text-gray-500">
+              <Shield className="w-3 h-3 mr-1 text-gray-400" />
+              Secure Checkout
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Payment Methods */}

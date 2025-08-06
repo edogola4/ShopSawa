@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "dompurify": "^3.2.6",
+    "framer-motion": "^12.23.12"
+  }
+}

@@ -11,11 +11,34 @@ class APIFeatures {
     const excludedFields = ['page', 'sort', 'limit', 'fields', 'search'];
     excludedFields.forEach((el) => delete queryObj[el]);
 
-    // Advanced filtering
+    // Handle category filter separately
+    let categoryFilter = {};
+    if (this.queryString.category) {
+      const mongoose = require('mongoose');
+      const categoryIds = Array.isArray(this.queryString.category)
+        ? this.queryString.category.map(id => new mongoose.Types.ObjectId(id))
+        : [new mongoose.Types.ObjectId(this.queryString.category)];
+      
+      categoryFilter = { category: { $in: categoryIds } };
+    }
+
+    // Advanced filtering for other fields
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+    
+    // Parse the query and combine with category filter
+    const query = JSON.parse(queryStr);
+    
+    // Ensure we only show active products by default
+    if (!query.status) {
+      query.status = 'active';
+    }
 
-    this.query = this.query.find(JSON.parse(queryStr));
+    // Combine all filters
+    const finalQuery = { ...query, ...categoryFilter };
+    
+    console.log('🔍 Filtering products with query:', JSON.stringify(finalQuery, null, 2));
+    this.query = this.query.find(finalQuery);
     return this;
   }
 

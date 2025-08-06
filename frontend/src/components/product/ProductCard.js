@@ -2,7 +2,7 @@
 
 /**
  * =============================================================================
- * PRODUCT CARD COMPONENT
+ * PRODUCT CARD COMPONENT - FIXED VERSION
  * =============================================================================
  * Reusable product card component with actions, ratings, and responsive design
  */
@@ -57,7 +57,9 @@ const ProductCard = ({
     discountPercentage = 0,
     category,
     shipping = {},
-    inventory = {}
+    inventory = {},
+    stock = 0,
+    sku
   } = product || {};
 
   const inCart = isInCart(_id);
@@ -81,28 +83,74 @@ const ProductCard = ({
     }
   };
 
-  // Handle add to cart
+  // ✅ FIXED: Handle add to cart with correct data structure
   const handleAddToCart = async (e) => {
     e.stopPropagation();
     
-    if (!isAvailable) return;
+    if (!isAvailable) {
+      addNotification({
+        type: 'error',
+        message: 'This product is currently out of stock',
+        duration: 3000
+      });
+      return;
+    }
+    
+    if (!product?._id) {
+      console.error('Cannot add to cart: Product ID is missing', { product });
+      addNotification({
+        type: 'error',
+        message: 'Cannot add to cart: Invalid product data',
+        duration: 5000
+      });
+      return;
+    }
     
     setIsAddingToCart(true);
     
     try {
-      const result = await addItem(product, 1);
+      // Log the original product data for debugging
+      console.log('Original product data:', product);
       
-      if (result.success) {
+      // ✅ FIXED: Create cart item data in the exact format CartService expects
+      const cartItemData = {
+        product: {
+          _id: product._id,
+          name: product.name || 'Unnamed Product',
+          price: parseFloat(product.price) || 0,
+          images: product.images || [],
+          sku: product.sku || `SKU-${product._id}`,
+          category: product.category,
+          stock: product.stock || 0,
+          isAvailable: product.isAvailable !== false,
+          discountPercentage: product.discountPercentage || 0
+        },
+        quantity: 1,
+        variant: null,
+        customization: null
+      };
+      
+      console.log('Adding to cart with correct structure:', cartItemData);
+      
+      // ✅ FIXED: Call addItem with the correct parameter structure
+      const result = await addItem(cartItemData);
+      
+      if (result && result.success) {
         addNotification({
           type: 'success',
-          message: `${name} added to cart!`,
+          message: `${cartItemData.product.name} added to cart!`,
           duration: 3000
         });
+      } else {
+        const errorMessage = result?.error || result?.message || 'Failed to add item to cart';
+        console.error('Add to cart failed:', errorMessage, result);
+        throw new Error(errorMessage);
       }
     } catch (error) {
+      console.error('Error in handleAddToCart:', error);
       addNotification({
         type: 'error',
-        message: 'Failed to add item to cart',
+        message: error.message || 'Failed to add item to cart',
         duration: 5000
       });
     } finally {

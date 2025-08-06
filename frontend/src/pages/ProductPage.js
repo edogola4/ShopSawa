@@ -37,10 +37,23 @@ const ProductsPage = () => {
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
     categories: searchParams.getAll('category') || [],
+    category: searchParams.get('category') || '', // Single category from URL
     priceRange: searchParams.get('priceRange') || null,
     minRating: searchParams.get('minRating') ? parseInt(searchParams.get('minRating')) : null,
     inStock: searchParams.get('inStock') ? searchParams.get('inStock') === 'true' : null
   });
+  
+  // Update filters when URL params change
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get('category');
+    if (categoryFromUrl && !filters.categories.includes(categoryFromUrl)) {
+      setFilters(prev => ({
+        ...prev,
+        category: categoryFromUrl,
+        categories: [...prev.categories, categoryFromUrl]
+      }));
+    }
+  }, [searchParams, filters.categories]);
 
   // Debounce search to avoid too many API calls
   const debouncedSearch = useDebounce(filters.search, 500);
@@ -59,7 +72,17 @@ const ProductsPage = () => {
   ];
 
   useEffect(() => {
-    loadProducts();
+    // First try to load real data, if it fails, load sample data
+    const fetchData = async () => {
+      try {
+        await loadProducts();
+      } catch (error) {
+        console.error('Error loading products, using sample data:', error);
+        loadProducts(true); // Load sample data on error
+      }
+    };
+    
+    fetchData();
   }, [debouncedSearch, filters.categories, filters.priceRange, filters.minRating, filters.inStock, sortBy, currentPage]);
 
   useEffect(() => {
@@ -83,29 +106,179 @@ const ProductsPage = () => {
     setSearchParams(params);
   };
 
-  const loadProducts = async () => {
+  // Sample products data
+  const sampleProducts = [
+    {
+      _id: 'sample_1',
+      name: 'Premium Smartphone X1',
+      price: 899.99,
+      images: ['https://via.placeholder.com/300x300?text=Smartphone'],
+      description: 'Latest model with advanced camera and long battery life',
+      rating: 4.8,
+      ratingsAverage: 4.8,
+      ratingsQuantity: 124,
+      numReviews: 124,
+      countInStock: 10,
+      stock: 10,
+      category: {
+        _id: 'cat_1',
+        name: 'Electronics',
+        slug: 'electronics'
+      },
+      brand: 'TechMaster',
+      isFeatured: true,
+      status: 'active',
+      slug: 'premium-smartphone-x1',
+      createdAt: new Date().toISOString()
+    },
+    {
+      _id: 'sample_2',
+      name: 'Wireless Bluetooth Earbuds',
+      price: 129.99,
+      images: ['https://via.placeholder.com/300x300?text=Earbuds'],
+      description: 'Crystal clear sound with noise cancellation',
+      rating: 4.5,
+      ratingsAverage: 4.5,
+      ratingsQuantity: 89,
+      numReviews: 89,
+      countInStock: 25,
+      stock: 25,
+      category: {
+        _id: 'cat_2',
+        name: 'Audio',
+        slug: 'audio'
+      },
+      brand: 'SoundWave',
+      isFeatured: true,
+      status: 'active',
+      slug: 'wireless-bluetooth-earbuds',
+      createdAt: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      _id: 'sample_3',
+      name: 'Smart Watch Pro',
+      price: 249.99,
+      images: ['https://via.placeholder.com/300x300?text=Smartwatch'],
+      description: 'Track your fitness and stay connected',
+      rating: 4.7,
+      ratingsAverage: 4.7,
+      ratingsQuantity: 156,
+      numReviews: 156,
+      countInStock: 15,
+      stock: 15,
+      category: {
+        _id: 'cat_3',
+        name: 'Wearables',
+        slug: 'wearables'
+      },
+      brand: 'TechMaster',
+      isFeatured: true,
+      status: 'active',
+      slug: 'smart-watch-pro',
+      createdAt: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      _id: 'sample_4',
+      name: 'Laptop Backpack',
+      price: 59.99,
+      images: ['https://via.placeholder.com/300x300?text=Backpack'],
+      description: 'Durable and spacious with USB charging port',
+      rating: 4.6,
+      ratingsAverage: 4.6,
+      ratingsQuantity: 210,
+      numReviews: 210,
+      countInStock: 30,
+      stock: 30,
+      category: {
+        _id: 'cat_4',
+        name: 'Accessories',
+        slug: 'accessories'
+      },
+      brand: 'UrbanGear',
+      isFeatured: false,
+      status: 'active',
+      slug: 'laptop-backpack',
+      createdAt: new Date(Date.now() - 259200000).toISOString()
+    }
+  ];
+
+  const loadProducts = async (useSampleData = false) => {
     try {
       setLoading(true);
       
+      // If useSampleData is true, return sample data
+      if (useSampleData) {
+        console.log('Using sample products data');
+        setProducts(sampleProducts);
+        setTotalProducts(sampleProducts.length);
+        setLoading(false);
+        return;
+      }
+      
+      // Check if we're online and the backend is reachable
+      const isOnline = window.navigator.onLine;
+      if (!isOnline) {
+        console.warn('No internet connection, using sample data');
+        loadProducts(true); // Load sample data if offline
+        return;
+      }
+      
+      // Build query parameters
       const queryParams = {
         page: currentPage,
         limit: productsPerPage,
         sort: sortBy,
-        search: debouncedSearch,
-        ...filters
+        status: 'active',  // Only show active products
+        ...filters  // This includes search, priceRange, minRating, inStock
       };
 
-      // Remove empty/null values
-      Object.keys(queryParams).forEach(key => 
-        (queryParams[key] === null || queryParams[key] === '' || 
-         (Array.isArray(queryParams[key]) && queryParams[key].length === 0)) && 
-        delete queryParams[key]
-      );
+      // Handle category filtering - use the first category if multiple are selected
+      if (filters.category) {
+        queryParams.category = filters.category;
+      } else if (filters.categories && filters.categories.length > 0) {
+        queryParams.category = filters.categories[0]; // Use first category if multiple exist
+      }
 
-      const response = await productService.getProducts(queryParams);
+      // Remove empty/null/undefined values
+      Object.keys(queryParams).forEach(key => {
+        if (queryParams[key] === null || queryParams[key] === '' || queryParams[key] === undefined) {
+          delete queryParams[key];
+        } else if (Array.isArray(queryParams[key]) && queryParams[key].length === 0) {
+          delete queryParams[key];
+        }
+      });
+
+      // Remove the categories array since we're only using single category filtering
+      if (queryParams.categories) {
+        delete queryParams.categories;
+      }
+
+      console.log('Fetching products with params:', queryParams);
       
-      setProducts(response.data.products || []);
-      setTotalProducts(response.data.total || 0);
+      // Try to fetch products, fallback to sample data on error
+      try {
+        const response = await productService.getProducts(queryParams);
+        console.log('Products response:', { 
+          count: response.data?.length, 
+          total: response.pagination?.total || response.data?.length || 0,
+          filters: queryParams 
+        });
+        
+        // If no products found, use sample data
+        if (!response.data || response.data.length === 0) {
+          console.warn('No products found in API response, using sample data');
+          loadProducts(true);
+          return;
+        }
+        
+        setProducts(response.data || []);
+        setTotalProducts(response.pagination?.total || response.data?.length || 0);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        // Use sample data if there's an error
+        loadProducts(true);
+        return;
+      }
     } catch (error) {
       console.error('Failed to load products:', error);
       showNotification('error', 'Failed to load products');

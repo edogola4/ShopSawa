@@ -406,6 +406,8 @@ const cartReducer = (state, action) => {
 
 /**
  * Extract cart data from API response
+ * @param {Object} cart - The cart data from API
+ * @returns {Object} - Formatted cart data
  */
 const extractCartData = (cart) => {
   if (!cart) {
@@ -424,18 +426,60 @@ const extractCartData = (cart) => {
     };
   }
 
+  // Handle different API response formats
+  const isNestedData = cart.data && cart.data.cart;
+  const cartData = isNestedData ? cart.data.cart : cart;
+  const items = cartData.items || [];
+  
+  // Calculate item count and unique items
+  const itemCount = items.reduce((total, item) => total + (item.quantity || 1), 0);
+  const uniqueItems = items.length;
+
+  // Extract summary from API or calculate from items
+  let summary = {
+    subtotal: 0,
+    tax: 0,
+    shipping: 0,
+    discount: 0,
+    total: 0,
+    itemCount,
+    uniqueItems
+  };
+
+  if (cartData.totals) {
+    // Use server-calculated totals if available
+    summary = {
+      ...summary,
+      subtotal: cartData.totals.subtotal || 0,
+      tax: cartData.totals.tax || 0,
+      shipping: cartData.totals.shipping || 0,
+      discount: cartData.totals.discount || 0,
+      total: cartData.totals.total || 0
+    };
+  } else {
+    // Calculate client-side if no server totals
+    const subtotal = items.reduce((sum, item) => {
+      return sum + (item.price * (item.quantity || 1));
+    }, 0);
+
+    const discount = cartData.discount || 0;
+    const shipping = cartData.shipping || 0;
+    const tax = cartData.tax || 0;
+
+    summary = {
+      ...summary,
+      subtotal,
+      tax,
+      shipping,
+      discount,
+      total: subtotal + tax + shipping - discount
+    };
+  }
+
   return {
-    cart,
-    items: cart.items || [],
-    summary: cart.totals || {
-      subtotal: 0,
-      tax: 0,
-      shipping: 0,
-      discount: 0,
-      total: 0,
-      itemCount: 0,
-      uniqueItems: 0
-    }
+    cart: cartData,
+    items,
+    summary
   };
 };
 
@@ -514,7 +558,8 @@ export const CartProvider = ({ children }) => {
   /**
    * Add item to cart
    */
-  const addItem = useCallback(async (product, quantity = 1, variant = null) => {
+  const addItem = useCallback(async (itemData) => {
+    const { product, quantity = 1, variant = null } = itemData;
     if (!product || !product._id) {
       dispatch({
         type: ActionTypes.ERROR_SET,
@@ -549,8 +594,18 @@ export const CartProvider = ({ children }) => {
     });
 
     try {
+      // Create a minimal product object with just the ID for the cart service
+      const cartProduct = {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        sku: product.sku,
+        images: product.images || []
+      };
+      
+      // Forward the properly structured data to cartService.addItem
       const response = await cartService.addItem({
-        product,
+        product: cartProduct,
         quantity,
         variant
       });

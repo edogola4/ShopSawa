@@ -1,10 +1,10 @@
-// frontend/src/services/api.js - COMPLETE FIXED VERSION
+// frontend/src/services/api.js - ENHANCED VERSION FOR YOUR BACKEND
 
 /**
  * =============================================================================
- * API SERVICE LAYER - COMPLETE FIXED VERSION
+ * API SERVICE LAYER - ENHANCED FOR YOUR SPECIFIC BACKEND
  * =============================================================================
- * Handles your specific backend response structure with robust error handling
+ * Handles your backend's exact response structure with comprehensive error handling
  */
 
 import { 
@@ -196,26 +196,37 @@ class ApiService {
   }
 
   /**
-   * COMPLETE FIX: Normalize YOUR backend response structure
+   * ✅ ULTIMATE FIX: Specialized backend response handler for your exact API structure
    */
   normalizeBackendResponse(response, requestUrl) {
+    console.log('🔧 Normalizing response for URL:', requestUrl, response);
+
     // Handle your specific backend response structure
     if (response && typeof response === 'object') {
       
       // Case 1: Your backend's success response format (status: "success")
       if (response.status === 'success') {
         
-        // For AUTH endpoints - preserve token and handle user data
+        // ✅ CART ENDPOINTS - Special handling for cart operations
+        if (requestUrl.includes('/cart/items') && requestUrl.includes('POST')) {
+          return {
+            success: true,
+            data: response.data || response.cart || {},
+            message: response.message || 'Item added to cart successfully'
+          };
+        }
+        
+        // ✅ AUTH endpoints - preserve token and handle user data
         if (requestUrl.includes('/auth/')) {
           return {
-            success: true,                    // ✅ Convert status to success
-            token: response.token,            // ✅ Preserve token
-            data: response.data || {},        // ✅ Preserve user data
+            success: true,
+            token: response.token,
+            data: response.data || response.user || {},
             message: response.message || 'Authentication successful'
           };
         }
         
-        // For products endpoint - extract products array from data.products
+        // ✅ Products endpoint - extract products array from data.products
         if (requestUrl.includes('/products') && response.data?.products) {
           return {
             success: true,
@@ -230,7 +241,7 @@ class ApiService {
           };
         }
         
-        // For categories endpoint
+        // ✅ Categories endpoint
         if (requestUrl.includes('/categories')) {
           const categories = response.data?.categories || response.data || [];
           return {
@@ -240,32 +251,51 @@ class ApiService {
           };
         }
         
-        // For single item responses
+        // ✅ Single item responses
         if (response.data && !Array.isArray(response.data)) {
           return {
             success: true,
             data: response.data,
-            token: response.token,            // ✅ Preserve token if present
+            token: response.token,
             message: response.message || 'Data fetched successfully'
           };
         }
         
-        // Default success case
+        // ✅ Default success case
         return {
-          success: true,                      // ✅ Convert status to success
+          success: true,
           data: response.data || [],
-          token: response.token,              // ✅ Preserve token if present
+          token: response.token,
           pagination: response.pagination,
           message: response.message || 'Operation successful'
         };
       }
       
-      // Case 2: Already in expected format
+      // Case 2: Error responses (status: "fail" or "error")
+      if (response.status === 'fail' || response.status === 'error') {
+        // Extract detailed error message
+        let errorMessage = 'Operation failed';
+        
+        if (response.error?.message) {
+          errorMessage = response.error.message;
+        } else if (response.message) {
+          errorMessage = response.message;
+        } else if (typeof response.error === 'string') {
+          errorMessage = response.error;
+        }
+        
+        const error = new Error(errorMessage);
+        error.status = response.error?.statusCode || 400;
+        error.data = response;
+        throw error;
+      }
+      
+      // Case 3: Already in expected format
       if ('success' in response) {
         return response;
       }
       
-      // Case 3: Direct array response
+      // Case 4: Direct array response
       if (Array.isArray(response)) {
         return {
           success: true,
@@ -381,6 +411,13 @@ class ApiService {
         }
       }
 
+      console.log('🚀 Making request:', {
+        url: urlWithParams,
+        method: method.toUpperCase(),
+        headers,
+        body: data
+      });
+
       const response = await fetch(urlWithParams, fetchOptions);
       clearTimeout(timeoutId);
 
@@ -392,7 +429,7 @@ class ApiService {
   }
 
   /**
-   * COMPLETE FIX: Enhanced response handling with robust error handling
+   * ✅ ULTIMATE FIX: Enhanced response handling with comprehensive error parsing
    */
   async handleResponse(response) {
     let data;
@@ -408,7 +445,7 @@ class ApiService {
           url: response.url,
           status: response.status,
           contentType: response.headers.get('content-type'),
-          responseText: responseText.substring(0, 200) + (responseText.length > 200 ? '...' : '')
+          responseText: responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
         });
       }
       
@@ -421,36 +458,15 @@ class ApiService {
           console.error('❌ JSON Parse Error:', parseError);
           console.error('📄 Raw response:', responseText);
           
-          // Handle malformed JSON - extract meaningful error
-          let errorMessage = 'Invalid response from server';
-          
-          // Try to extract error message from malformed response
-          if (responseText.includes('email') || responseText.includes('password') || responseText.includes('validation')) {
-            // Looks like a validation error message
-            errorMessage = `Validation error: ${responseText.replace(/^["']|["']$/g, '').substring(0, 100)}`;
-          } else if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
-            // HTML error page
-            errorMessage = 'Server error - received HTML instead of JSON';
-          } else {
-            // Plain text error
-            errorMessage = responseText.replace(/^["']|["']$/g, '').substring(0, 100);
-          }
-          
-          // Create structured error response
+          // Handle malformed JSON
           data = {
             status: 'error',
-            message: errorMessage,
+            message: 'Invalid JSON response from server',
             originalResponse: responseText
           };
         }
       } else {
         // Non-JSON response (HTML error page, plain text, etc.)
-        console.warn('⚠️ Non-JSON response received:', {
-          contentType,
-          status: response.status,
-          text: responseText.substring(0, 100)
-        });
-        
         data = {
           status: 'error',
           message: responseText.substring(0, 200),
@@ -462,17 +478,23 @@ class ApiService {
       throw new Error(`Failed to process server response: ${error.message}`);
     }
 
-    // Handle error responses (4xx, 5xx)
+    // ✅ ENHANCED: Handle error responses (4xx, 5xx) with better error extraction
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
       
-      // Extract error message based on response structure
-      if (typeof data === 'string') {
+      // Extract error message based on your backend's response structure
+      if (data?.status === 'fail' || data?.status === 'error') {
+        if (data.error?.message) {
+          errorMessage = data.error.message;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (typeof data.error === 'string') {
+          errorMessage = data.error;
+        }
+      } else if (typeof data === 'string') {
         errorMessage = data;
       } else if (data?.message) {
         errorMessage = data.message;
-      } else if (data?.error) {
-        errorMessage = data.error;
       } else if (data?.errors) {
         // Handle validation errors object
         if (typeof data.errors === 'object') {
@@ -481,13 +503,10 @@ class ApiService {
         } else {
           errorMessage = data.errors;
         }
-      } else if (data?.isTextResponse && data?.message) {
-        // Handle HTML error pages or text responses
-        errorMessage = `Server error: ${data.message.substring(0, 100)}...`;
       }
       
       // Clean up error message
-      errorMessage = errorMessage.replace(/^["']|["']$/g, ''); // Remove quotes
+      errorMessage = errorMessage.replace(/^["']|["']$/g, '');
       
       const error = new Error(errorMessage);
       error.status = response.status;
@@ -495,7 +514,7 @@ class ApiService {
       error.responseText = responseText;
       error.config = { url: response.url };
       
-      // Log full error details in development
+      // Enhanced error logging
       if (process.env.NODE_ENV === 'development') {
         console.error('❌ API Error Details:', {
           status: response.status,
