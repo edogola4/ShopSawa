@@ -140,9 +140,13 @@ const AdminLoginPage = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+              <button
+                type="button"
+                className="font-medium text-indigo-600 hover:text-indigo-500 bg-transparent border-0 p-0 cursor-pointer"
+                onClick={() => navigate('/forgot-password')}
+              >
                 Forgot your password?
-              </a>
+              </button>
             </div>
           </div>
 
