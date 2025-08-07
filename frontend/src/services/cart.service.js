@@ -18,102 +18,251 @@ class CartService {
   }
 
   /**
-   * Get user's cart
-   * @returns {Promise<object>} Cart data
+   * Get user's cart with proper normalization
+   * @returns {Promise<{success: boolean, data: object, message?: string}>} Normalized cart response
    */
   async getCart() {
     try {
+      let response;
+      
       if (authService.isAuthenticated()) {
-        // Get authenticated user's cart from server
-        const response = await apiService.get(API_ENDPOINTS.CART.BASE);
-        return this.formatCartResponse(response);
+        console.log('[CartService] Fetching cart from server...');
+        response = await apiService.get(API_ENDPOINTS.CART.BASE);
+        console.log('[CartService] Server cart response:', response);
       } else {
-        // Get guest cart from localStorage
+        console.log('[CartService] Getting guest cart from localStorage');
         const guestCart = this.getGuestCart();
-        return {
-          success: true,
-          data: guestCart
-        };
+        console.log('[CartService] Guest cart:', guestCart);
+        response = { data: guestCart };
       }
+      
+      const formattedResponse = this.formatCartResponse(response);
+      
+      if (formattedResponse.success && formattedResponse.data) {
+        if (authService.isAuthenticated()) {
+          this.saveGuestCart(formattedResponse.data);
+        }
+      }
+      
+      return formattedResponse;
+      
     } catch (error) {
-      // If server cart fails, fall back to guest cart
-      if (error.status === 404 || error.status === 401) {
+      console.error('[CartService] Error in getCart:', error);
+      
+      if (error.status === 401) {
+        console.log('[CartService] Authentication required, falling back to guest cart');
+        await authService.logout();
         const guestCart = this.getGuestCart();
-        return {
-          success: true,
-          data: guestCart
-        };
+        return this.formatCartResponse({ data: guestCart });
       }
-      throw this.handleCartError(error);
+      
+      if (error.status === 404) {
+        console.log('[CartService] No cart found, returning empty cart');
+        return this.formatCartResponse({ data: this.getEmptyCart() });
+      }
+      
+      console.warn('[CartService] Error fetching cart, attempting fallback:', error);
+      try {
+        const guestCart = this.getGuestCart();
+        return this.formatCartResponse({ 
+          success: false, 
+          data: guestCart,
+          message: 'Error fetching cart. Using local data.'
+        });
+      } catch (innerError) {
+        console.error('[CartService] Critical error in getCart fallback:', innerError);
+        return this.formatCartResponse({
+          success: false,
+          data: this.getEmptyCart(),
+          message: 'Unable to load cart. Please refresh the page.'
+        });
+      }
     }
   }
 
   /**
-   * Add item to cart
+   * Add item to cart with proper validation and normalization
    * @param {object} itemData - Item data to add
-   * @returns {Promise<object>} Add response
+   * @returns {Promise<{success: boolean, data: object, message?: string}>} Add response
+   */
+  /**
+   * Add item to cart with proper validation and normalization
+   * @param {object} itemData - Item data to add
+   * @returns {Promise<{success: boolean, data: object, message?: string}>} Add response
+   */
+  /**
+   * Add item to cart with proper validation and normalization
+   * @param {object} itemData - Item data to add
+   * @returns {Promise<{success: boolean, data: object, message?: string}>} Add response
    */
   async addItem(itemData) {
-    const {
-      product,
-      quantity = 1,
-      variant = null,
-      customization = null
-    } = itemData;
-
-    if (!product || !product._id) {
-      throw new Error('Invalid product data');
+    console.log('[CartService] addItem called with:', JSON.stringify(itemData, null, 2));
+    
+    // Validate input
+    if (!itemData || typeof itemData !== 'object') {
+      const error = new Error('Invalid item data');
+      console.error('[CartService] Invalid item data:', itemData);
+      throw error;
     }
 
-    if (quantity < 1 || quantity > BUSINESS_RULES.MAX_QUANTITY_PER_ITEM) {
-      throw new Error(`Quantity must be between 1 and ${BUSINESS_RULES.MAX_QUANTITY_PER_ITEM}`);
+    // Extract data with defaults - handle both nested and flat structures
+    const product = itemData.product || itemData;
+    const quantity = parseInt(itemData.quantity || 1, 10);
+    const variant = itemData.variant || null;
+
+    // Ensure we have a valid product with an ID
+    if (!product) {
+      const error = new Error('Product data is required');
+      console.error('[CartService] Product data is missing');
+      throw error;
+    }
+
+    // Extract product ID - handle both string and object _id
+    const productId = product._id ? (typeof product._id === 'object' ? product._id.toString() : product._id) : null;
+    
+    if (!productId) {
+      const error = new Error('Product ID is required');
+      console.error('[CartService] Product ID validation failed:', { product });
+      throw error;
+    }
+
+    // Validate quantity
+    if (isNaN(quantity) || quantity < 1 || quantity > BUSINESS_RULES.MAX_QUANTITY_PER_ITEM) {
+      const error = new Error(`Quantity must be between 1 and ${BUSINESS_RULES.MAX_QUANTITY_PER_ITEM}`);
+      console.error('[CartService] Quantity validation failed:', { quantity });
+      throw error;
     }
 
     try {
       if (authService.isAuthenticated()) {
-        // Add to server cart
-        const response = await apiService.post(API_ENDPOINTS.CART.ITEMS, {
-          product: product._id,
-          name: product.name,
-          sku: product.sku,
-          price: product.price,
-          quantity,
-          variant,
-          customization,
+        // Handle authenticated user
+        console.log('[CartService] Adding item to server cart');
+        
+        // Prepare request data
+        const requestData = {
+          productId: productId,
+          quantity: quantity,
+          variant: variant,
+          name: product.name || 'Unnamed Product',
+          price: parseFloat(product.price) || 0,
+          sku: product.sku || `SKU-${productId}`,
           image: {
-            url: product.images?.[0]?.url,
-            alt: product.images?.[0]?.alt || product.name
+            url: Array.isArray(product.images) && product.images[0]?.url || '',
+            alt: Array.isArray(product.images) && product.images[0]?.alt || product.name || 'Product image'
           }
-        });
-
-        return this.formatCartResponse(response);
-      } else {
-        // Add to guest cart
-        const guestCart = this.getGuestCart();
-        const updatedCart = this.addItemToGuestCart(guestCart, {
-          product: product._id,
-          name: product.name,
-          sku: product.sku,
-          price: product.price,
-          quantity,
-          variant,
-          customization,
-          image: {
-            url: product.images?.[0]?.url,
-            alt: product.images?.[0]?.alt || product.name
-          },
-          productData: product // Store full product data for guest cart
-        });
-
-        this.saveGuestCart(updatedCart);
-
-        return {
-          success: true,
-          data: updatedCart,
-          message: 'Item added to cart'
         };
+        
+        // Clean up undefined values
+        Object.keys(requestData).forEach(key => requestData[key] === undefined && delete requestData[key]);
+        
+        try {
+          // Make API call to add item to cart
+          const apiResponse = await apiService.post(API_ENDPOINTS.CART.ITEMS, requestData);
+          console.log('[CartService] Add item API response:', apiResponse);
+          
+          // Fetch the latest cart to ensure we have the most up-to-date data
+          const cartResponse = await this.getCart();
+          console.log('[CartService] Refreshed cart after adding item:', cartResponse);
+          
+          return this.formatCartResponse({
+            success: true,
+            data: cartResponse.data,
+            message: 'Item added to cart successfully'
+          });
+          
+        } catch (apiError) {
+          console.error('[CartService] Error adding item to cart:', apiError);
+          
+          // If we get a 401, the session might be expired - log out and try again
+          if (apiError.status === 401) {
+            console.log('[CartService] Session expired, logging out and retrying as guest');
+            await authService.logout();
+            // Continue to guest cart handling
+          } else {
+            // For other errors, try to add to guest cart as fallback
+            console.warn('[CartService] Failed to add item to server cart, falling back to guest cart');
+            const guestCart = this.getGuestCart();
+            const updatedCart = this.addItemToGuestCart(guestCart, {
+              product: productId,
+              quantity,
+              variant,
+              price: parseFloat(product.price) || 0,
+              name: product.name,
+              sku: product.sku,
+              images: product.images
+            });
+            this.saveGuestCart(updatedCart);
+            
+            return this.formatCartResponse({
+              success: true,
+              data: updatedCart,
+              message: 'Item added to guest cart (offline mode)'
+            });
+          }
+        }
+      } else {
+        console.log('[CartService] Adding item to guest cart');
+        
+        try {
+          // Get current guest cart
+          const guestCart = this.getGuestCart();
+          console.log('[CartService] Current guest cart:', guestCart);
+          
+          // Prepare cart item data
+          const cartItem = {
+            _id: `guest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            product: productId,
+            name: product.name || 'Unnamed Product',
+            sku: product.sku || `SKU-${productId}`,
+            price: parseFloat(product.price) || 0,
+            quantity: quantity,
+            variant: variant,
+            image: {
+              url: Array.isArray(product.images) && product.images[0]?.url || '',
+              alt: Array.isArray(product.images) && product.images[0]?.alt || product.name || 'Product image'
+            },
+            productData: {
+              _id: productId,
+              name: product.name,
+              price: product.price,
+              images: product.images,
+              sku: product.sku,
+              stock: product.stock,
+              isAvailable: product.isAvailable,
+              discountPercentage: product.discountPercentage
+            }
+          };
+          
+          // Clean up undefined values in productData
+          Object.keys(cartItem.productData).forEach(key => {
+            if (cartItem.productData[key] === undefined) {
+              delete cartItem.productData[key];
+            }
+          });
+          
+          console.log('[CartService] New cart item:', cartItem);
+          
+          // Add to guest cart
+          const updatedCart = this.addItemToGuestCart(guestCart, cartItem);
+          console.log('[CartService] Updated guest cart:', updatedCart);
+          
+          // Save to storage
+          this.saveGuestCart(updatedCart);
+          
+          // Return success response with formatted cart
+          return this.formatCartResponse({
+            success: true,
+            data: updatedCart,
+            message: 'Item added to cart'
+          });
+          
+        } catch (error) {
+          console.error('[CartService] Error adding to guest cart:', error);
+          throw this.handleCartError(error);
+        }
       }
     } catch (error) {
+      console.error('[CartService] Unexpected error in addItem:', error);
       throw this.handleCartError(error);
     }
   }
@@ -345,9 +494,121 @@ class CartService {
    * Get guest cart from localStorage
    * @returns {object} Guest cart data
    */
+  /**
+   * Get an empty cart object with default values
+   * @returns {object} Empty cart object with default structure
+   */
+  getEmptyCart() {
+    return {
+      items: [],
+      subtotal: 0,
+      tax: 0,
+      shipping: 0,
+      discounts: 0,
+      total: 0,
+      itemCount: 0,
+      uniqueItems: 0,
+      updatedAt: new Date().toISOString(),
+      currency: 'USD',
+      coupon: null
+    };
+  }
+
+  /**
+   * Get guest cart from storage or create a new one if it doesn't exist
+   * @returns {object} Guest cart object
+   */
   getGuestCart() {
-    const stored = secureStorage.get(this.guestCartKey);
-    return stored || this.createEmptyCart();
+    try {
+      const stored = secureStorage.get(this.guestCartKey);
+      if (!stored) {
+        return this.getEmptyCart();
+      }
+      // Ensure the stored cart has all required fields
+      const cart = JSON.parse(JSON.stringify(stored));
+      return {
+        ...this.getEmptyCart(),
+        ...cart,
+        items: cart.items || [],
+        updatedAt: cart.updatedAt || new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('[CartService] Error getting guest cart:', error);
+      return this.getEmptyCart();
+    }
+  }
+
+  /**
+   * Add an item to the guest cart
+   * @param {object} cart - The current cart object
+   * @param {object} item - The item to add to the cart
+   * @returns {object} Updated cart object
+   */
+  addItemToGuestCart(cart, item) {
+    try {
+      // Create a deep copy of the cart to avoid mutating the original
+      const updatedCart = JSON.parse(JSON.stringify(cart));
+      
+      // Ensure items array exists
+      updatedCart.items = updatedCart.items || [];
+      
+      // Check if item already exists in cart
+      const existingItemIndex = updatedCart.items.findIndex(cartItem => 
+        cartItem.product === item.product && 
+        JSON.stringify(cartItem.variant) === JSON.stringify(item.variant)
+      );
+      
+      if (existingItemIndex >= 0) {
+        // Update quantity if item exists
+        updatedCart.items[existingItemIndex].quantity += item.quantity || 1;
+      } else {
+        // Add new item to cart
+        updatedCart.items.push({
+          product: item.product,
+          name: item.name,
+          price: parseFloat(item.price) || 0,
+          quantity: item.quantity || 1,
+          sku: item.sku,
+          variant: item.variant || null,
+          image: item.image || null,
+          addedAt: new Date().toISOString()
+        });
+      }
+      
+      // Recalculate cart totals
+      updatedCart.subtotal = updatedCart.items.reduce(
+        (sum, item) => sum + (item.price * item.quantity), 0
+      );
+      
+      // Apply any discounts here if needed
+      updatedCart.discounts = 0; // Reset and recalculate if needed
+      
+      // Calculate tax and shipping (using mock functions for now)
+      updatedCart.tax = calculateTax(updatedCart.subtotal - updatedCart.discounts);
+      updatedCart.shipping = calculateShipping(updatedCart);
+      
+      // Calculate final total
+      updatedCart.total = updatedCart.subtotal + 
+                         updatedCart.tax + 
+                         updatedCart.shipping - 
+                         updatedCart.discounts;
+      
+      // Update item counts
+      updatedCart.itemCount = updatedCart.items.reduce(
+        (sum, item) => sum + item.quantity, 0
+      );
+      updatedCart.uniqueItems = updatedCart.items.length;
+      
+      // Update timestamp
+      updatedCart.updatedAt = new Date().toISOString();
+      
+      return updatedCart;
+      
+    } catch (error) {
+      console.error('[CartService] Error in addItemToGuestCart:', error);
+      // Return the original cart in case of error
+      return cart;
+    }
   }
 
   /**
@@ -369,168 +630,163 @@ class CartService {
   clearGuestCart() {
     secureStorage.remove(this.guestCartKey);
     
-    // Dispatch cart cleared event
-    window.dispatchEvent(new CustomEvent('cart:cleared'));
-  }
-
-  /**
-   * Create empty cart structure
-   * @returns {object} Empty cart
-   */
-  createEmptyCart() {
+    // Create a timestamp for the cart
+    const now = new Date().toISOString();
+    
     return {
+      _id: null,
       user: null,
       items: [],
       totals: {
         subtotal: 0,
+        discount: 0,
         tax: 0,
         shipping: 0,
-        discount: 0,
         total: 0,
         itemCount: 0,
         uniqueItems: 0
       },
-      appliedCoupons: [],
-      lastActivity: new Date().toISOString(),
-      isGuest: true
+      isActive: true,
+      createdAt: now,
+      updatedAt: now
     };
   }
 
   /**
-   * Add item to guest cart
-   * @param {object} cart - Current cart
-   * @param {object} item - Item to add
-   * @returns {object} Updated cart
+   * Format cart response to ensure consistent structure
+   * @param {object} response - API response
+   * @returns {object} Formatted cart data with success status
    */
-  addItemToGuestCart(cart, item) {
-    const existingItemIndex = cart.items.findIndex(cartItem => 
-      cartItem.product === item.product &&
-      JSON.stringify(cartItem.variant) === JSON.stringify(item.variant)
-    );
-
-    if (existingItemIndex > -1) {
-      // Update existing item
-      cart.items[existingItemIndex].quantity += item.quantity;
-      cart.items[existingItemIndex].updatedAt = new Date().toISOString();
-    } else {
-      // Add new item
-      cart.items.push({
-        ...item,
-        addedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    return this.recalculateGuestCart(cart);
-  }
-
-  /**
-   * Update item in guest cart
-   * @param {object} cart - Current cart
-   * @param {string} productId - Product ID
-   * @param {number} quantity - New quantity
-   * @param {object} variant - Product variant
-   * @returns {object} Updated cart
-   */
-  updateItemInGuestCart(cart, productId, quantity, variant) {
-    const itemIndex = cart.items.findIndex(item => 
-      item.product === productId &&
-      JSON.stringify(item.variant) === JSON.stringify(variant)
-    );
-
-    if (itemIndex > -1) {
-      if (quantity <= 0) {
-        cart.items.splice(itemIndex, 1);
-      } else {
-        cart.items[itemIndex].quantity = quantity;
-        cart.items[itemIndex].updatedAt = new Date().toISOString();
+  formatCartResponse(response) {
+    try {
+      // If response is already in the correct format, return it
+      if (response && typeof response === 'object' && 'success' in response) {
+        return {
+          success: response.success,
+          data: this.normalizeCartData(response.data?.cart || response.data),
+          message: response.message
+        };
       }
+
+      // Handle different response structures
+      if (response && response.data) {
+        // Backend response format: { status: 'success', data: { cart: {...} } }
+        return {
+          success: response.status === 'success',
+          data: this.normalizeCartData(response.data.cart || response.data),
+          message: response.message
+        };
+      }
+
+      // Fallback to empty cart with error
+      console.warn('Unexpected cart response format, normalizing as empty cart');
+      return {
+        success: false,
+        data: this.normalizeCartData(response || null),
+        message: 'Unexpected cart response format'
+      };
+    } catch (error) {
+      console.error('Error formatting cart response:', error);
+      return {
+        success: false,
+        data: this.getEmptyCart(),
+        message: 'Error processing cart data'
+      };
+    }
+  }
+
+  /**
+   * Normalize cart data to ensure consistent structure
+   * @param {object} cartData - Raw cart data from API
+   * @returns {object} Normalized cart data
+   */
+  normalizeCartData(cartData) {
+    if (!cartData || typeof cartData !== 'object') {
+      return this.getEmptyCart();
     }
 
-    return this.recalculateGuestCart(cart);
+    try {
+      // Ensure items array exists and is properly formatted
+      const items = Array.isArray(cartData.items) 
+        ? cartData.items.map(item => this.normalizeCartItem(item))
+        : [];
+
+      // Calculate totals if not provided
+      const subtotal = this.calculateSubtotal(items);
+      const totals = {
+        subtotal: Number(cartData.totals?.subtotal) || subtotal,
+        discount: Number(cartData.totals?.discount) || 0,
+        tax: Number(cartData.totals?.tax) || calculateTax(subtotal),
+        shipping: Number(cartData.totals?.shipping) || calculateShipping(subtotal, items.length),
+        itemCount: items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+        uniqueItems: new Set(items.map(item => 
+          item.product?._id || item.product?.id || item.product
+        )).size
+      };
+
+      // Calculate total
+      totals.total = totals.subtotal - totals.discount + totals.tax + totals.shipping;
+
+      return {
+        _id: cartData._id || null,
+        user: cartData.user || null,
+        items,
+        totals,
+        isActive: cartData.isActive !== false,
+        createdAt: cartData.createdAt || new Date().toISOString(),
+        updatedAt: cartData.updatedAt || new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error normalizing cart data:', error);
+      return this.getEmptyCart();
+    }
   }
 
   /**
-   * Remove item from guest cart
-   * @param {object} cart - Current cart
-   * @param {string} productId - Product ID
-   * @param {object} variant - Product variant
-   * @returns {object} Updated cart
+   * Normalize a single cart item
+   * @param {object} item - Cart item to normalize
+   * @returns {object} Normalized cart item
    */
-  removeItemFromGuestCart(cart, productId, variant) {
-    cart.items = cart.items.filter(item => {
-      const productMatch = item.product !== productId;
-      const variantMatch = variant ? 
-        JSON.stringify(item.variant) !== JSON.stringify(variant) : true;
-      return productMatch || !variantMatch;
-    });
+  normalizeCartItem(item) {
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
 
-    return this.recalculateGuestCart(cart);
+    const product = typeof item.product === 'object' 
+      ? {
+          _id: item.product._id || item.product.id,
+          name: item.product.name || '',
+          price: Number(item.product.price) || 0,
+          images: Array.isArray(item.product.images) ? item.product.images : [],
+          stock: Number(item.product.stock) || 0,
+          status: item.product.status || 'active',
+          sku: item.product.sku || '',
+          ...item.product
+        }
+      : item.product; // Keep as is if it's just an ID
+
+    return {
+      _id: item._id || `item_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      product,
+      quantity: Math.max(1, Number(item.quantity) || 1),
+      variant: item.variant || null,
+      price: Number(item.price) || (product?.price || 0),
+      image: item.image || (product?.images?.[0] || { url: '', alt: '' })
+    };
   }
 
   /**
-   * Recalculate guest cart totals
-   * @param {object} cart - Cart to recalculate
-   * @returns {object} Updated cart with recalculated totals
+   * Calculate subtotal from cart items
+   * @param {Array} items - Cart items
+   * @returns {number} Calculated subtotal
    */
-  recalculateGuestCart(cart) {
-    const subtotal = cart.items.reduce((total, item) => {
-      const itemPrice = item.price + (item.variant?.priceAdjustment || 0);
-      return total + (itemPrice * item.quantity);
+  calculateSubtotal(items) {
+    if (!Array.isArray(items)) return 0;
+    return items.reduce((sum, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const price = Number(item.price) || 0;
+      return sum + (quantity * price);
     }, 0);
-
-    const tax = calculateTax(subtotal);
-    const shipping = calculateShipping(subtotal);
-    const discount = cart.appliedCoupons.reduce((total, coupon) => 
-      total + (coupon.discount || 0), 0
-    );
-
-    cart.totals = {
-      subtotal: Math.round(subtotal * 100) / 100,
-      tax: Math.round(tax * 100) / 100,
-      shipping: Math.round(shipping * 100) / 100,
-      discount: Math.round(discount * 100) / 100,
-      total: Math.round((subtotal + tax + shipping - discount) * 100) / 100,
-      itemCount: cart.items.reduce((total, item) => total + item.quantity, 0),
-      uniqueItems: cart.items.length
-    };
-
-    cart.lastActivity = new Date().toISOString();
-
-    return cart;
-  }
-
-  // ===========================================================================
-  // UTILITY METHODS
-  // ===========================================================================
-
-  /**
-   * Calculate cart summary
-   * @param {object} cart - Cart data
-   * @returns {object} Cart summary
-   */
-  calculateCartSummary(cart) {
-    const summary = {
-      itemCount: cart.totals?.itemCount || 0,
-      uniqueItems: cart.totals?.uniqueItems || 0,
-      subtotal: cart.totals?.subtotal || 0,
-      tax: cart.totals?.tax || 0,
-      shipping: cart.totals?.shipping || 0,
-      discount: cart.totals?.discount || 0,
-      total: cart.totals?.total || 0,
-      isEmpty: !cart.items || cart.items.length === 0,
-      hasShipping: (cart.totals?.shipping || 0) > 0,
-      qualifiesForFreeShipping: (cart.totals?.subtotal || 0) >= BUSINESS_RULES.FREE_SHIPPING_THRESHOLD,
-      freeShippingThreshold: BUSINESS_RULES.FREE_SHIPPING_THRESHOLD,
-      appliedCoupons: cart.appliedCoupons || []
-    };
-
-    // Calculate amount needed for free shipping
-    if (!summary.qualifiesForFreeShipping) {
-      summary.amountForFreeShipping = BUSINESS_RULES.FREE_SHIPPING_THRESHOLD - summary.subtotal;
-    }
-
-    return summary;
   }
 
   /**
@@ -585,7 +841,11 @@ class CartService {
   }
 }
 
-// Create and export singleton instance
+// Create singleton instance
 const cartService = new CartService();
 
+// Export both as default and named export for testing
+// Default export for regular usage
 export default cartService;
+// Named export for testing
+export { CartService };

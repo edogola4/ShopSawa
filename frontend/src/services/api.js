@@ -80,16 +80,55 @@ class ApiService {
   // AUTH TOKEN MANAGEMENT
   // ===========================================================================
 
+  /**
+   * Get the authentication token from secure storage
+   * @returns {string|null} The authentication token or null if not found
+   */
   getAuthToken() {
-    return secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+    try {
+      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+      if (!token) {
+        console.warn('No auth token found in storage');
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Error retrieving auth token:', error);
+      return null;
+    }
   }
 
+  /**
+   * Set the authentication token in secure storage
+   * @param {string} token - The JWT token to store
+   * @returns {boolean} True if token was set successfully
+   */
   setAuthToken(token) {
-    secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, token);
+    if (!token) {
+      console.error('Cannot set empty auth token');
+      return false;
+    }
+    try {
+      secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, token);
+      return true;
+    } catch (error) {
+      console.error('Error setting auth token:', error);
+      return false;
+    }
   }
 
+  /**
+   * Remove the authentication token from secure storage
+   * @returns {boolean} True if token was removed successfully
+   */
   removeAuthToken() {
-    secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN);
+    try {
+      secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN);
+      return true;
+    } catch (error) {
+      console.error('Error removing auth token:', error);
+      return false;
+    }
   }
 
   async refreshToken() {

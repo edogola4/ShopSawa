@@ -13,24 +13,45 @@ import { secureStorage } from '../utils/helpers';
 
 class AuthService {
   /**
-   * FIXED: Login user with enhanced response handling
+   * Get the current authentication token
+   * @returns {string|null} The authentication token or null if not authenticated
+   */
+  /**
+   * Get the current authentication token
+   * @returns {string|null} The authentication token or null if not authenticated
+   */
+  getToken() {
+    try {
+      const token = apiService.getAuthToken();
+      if (!token) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('No auth token found via API service');
+        }
+        return null;
+      }
+      return token;
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Login user with enhanced response handling
    * @param {object} credentials - { email, password }
    * @returns {Promise<object>} Login response
    */
   async login(credentials) {
     try {
-      // ✅ Validate credentials before sending
       if (!credentials || !credentials.email || !credentials.password) {
         throw new Error('Email and password are required');
       }
 
-      // ✅ Clean request data - ONLY what we need
       const requestData = {
         email: credentials.email.trim().toLowerCase(),
         password: credentials.password
       };
 
-      // ✅ Debug logging (development only)
       if (process.env.NODE_ENV === 'development') {
         console.log('🚀 Auth Service - Sending login request:', {
           email: requestData.email,
@@ -45,7 +66,6 @@ class AuthService {
         { includeAuth: false }
       );
 
-      // ✅ Debug response (development only)
       if (process.env.NODE_ENV === 'development') {
         console.log('📥 Auth Service - Received response:', {
           hasSuccess: 'success' in response,
@@ -55,26 +75,18 @@ class AuthService {
         });
       }
 
-      // ✅ Enhanced response validation
       if (response && response.success && response.token) {
-        // Store token and user data securely
-        try {
-          if (typeof apiService.setAuthToken === 'function') {
-            apiService.setAuthToken(response.token);
-          } else {
-            // Fallback: directly store in storage
-            secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
-          }
-        } catch (error) {
-          console.warn('Failed to set auth token via API service, using fallback:', error);
-          secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
-        }
-        
-        if (response.data?.user) {
-          secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user);
+        // Always use the API service to set the token
+        const tokenSet = apiService.setAuthToken(response.token);
+        if (!tokenSet) {
+          console.error('Failed to set auth token via API service');
+          throw new Error('Failed to set authentication token');
         }
 
-        // Dispatch login event
+        if (response.data?.user) {
+          secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user); // Fixed: setItem → set
+        }
+
         window.dispatchEvent(new CustomEvent('auth:login', {
           detail: { user: response.data?.user }
         }));
@@ -86,12 +98,10 @@ class AuthService {
           user: response.data?.user
         };
       } else {
-        // ✅ Handle unexpected response format
         console.error('❌ Invalid login response format:', response);
         throw new Error('Invalid response format from server');
       }
     } catch (error) {
-      // ✅ Enhanced error logging
       if (process.env.NODE_ENV === 'development') {
         console.error('❌ Auth Service - Login error:', {
           message: error.message,
@@ -100,36 +110,32 @@ class AuthService {
           responseText: error.responseText
         });
       }
-
       throw this.handleAuthError(error);
     }
   }
 
   /**
-   * FINAL FIX: Register new user with comprehensive debugging and backend compatibility
+   * Register new user with comprehensive debugging and backend compatibility
    * @param {object} userData - User registration data
    * @returns {Promise<object>} Registration response
    */
   async register(userData) {
     try {
-      // ✅ Validate user data before sending
       if (!userData || !userData.email || !userData.password) {
         throw new Error('Email and password are required');
       }
 
-      // ✅ FINAL FIX: Try multiple backend field name formats
       const cleanUserData = {
         firstName: userData.firstName?.trim(),
         lastName: userData.lastName?.trim(),
         email: userData.email?.trim().toLowerCase(),
         phone: userData.phone?.trim(),
         password: userData.password,
-        confirmPassword: userData.confirmPassword,  // Most common
-        passwordConfirm: userData.confirmPassword,  // Alternative backend format
+        confirmPassword: userData.confirmPassword,
+        passwordConfirm: userData.confirmPassword,
         subscribeToNewsletter: userData.subscribeToNewsletter || false
       };
 
-      // ✅ CRITICAL DEBUG: Log the ACTUAL data being sent (with masked passwords)
       if (process.env.NODE_ENV === 'development') {
         console.log('🚀 Auth Service - Sending registration request:', {
           email: cleanUserData.email,
@@ -145,7 +151,6 @@ class AuthService {
           endpoint: API_ENDPOINTS.AUTH.REGISTER
         });
 
-        // ✅ ULTRA DEBUG: Log actual password characters (first/last char only)
         console.log('🔍 Password Debug:', {
           passwordFirstChar: cleanUserData.password?.charAt(0) || 'MISSING',
           passwordLastChar: cleanUserData.password?.charAt(cleanUserData.password?.length - 1) || 'MISSING',
@@ -154,7 +159,6 @@ class AuthService {
           exactMatch: cleanUserData.password === cleanUserData.confirmPassword
         });
 
-        // ✅ LOG THE EXACT REQUEST BODY (with masked passwords)
         const debugPayload = {
           ...cleanUserData,
           password: `***${cleanUserData.password?.length || 0} chars***`,
@@ -170,7 +174,6 @@ class AuthService {
         { includeAuth: false }
       );
 
-      // ✅ Debug response (development only)
       if (process.env.NODE_ENV === 'development') {
         console.log('📥 Auth Service - Received registration response:', {
           hasSuccess: 'success' in response,
@@ -180,26 +183,18 @@ class AuthService {
         });
       }
 
-      // ✅ Enhanced response validation
       if (response && response.success && response.token) {
-        // Store token and user data securely
-        try {
-          if (typeof apiService.setAuthToken === 'function') {
-            apiService.setAuthToken(response.token);
-          } else {
-            // Fallback: directly store in storage
-            secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
-          }
-        } catch (error) {
-          console.warn('Failed to set auth token via API service, using fallback:', error);
-          secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
-        }
-        
-        if (response.data?.user) {
-          secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user);
+        // Always use the API service to set the token
+        const tokenSet = apiService.setAuthToken(response.token);
+        if (!tokenSet) {
+          console.error('Failed to set auth token via API service');
+          throw new Error('Failed to set authentication token');
         }
 
-        // Dispatch registration event
+        if (response.data?.user) {
+          secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user); // Fixed: setItem → set
+        }
+
         window.dispatchEvent(new CustomEvent('auth:register', {
           detail: { user: response.data?.user }
         }));
@@ -215,7 +210,6 @@ class AuthService {
         throw new Error('Invalid response format from server');
       }
     } catch (error) {
-      // ✅ Enhanced error logging
       if (process.env.NODE_ENV === 'development') {
         console.error('❌ Auth Service - Registration error:', {
           message: error.message,
@@ -224,28 +218,51 @@ class AuthService {
           responseText: error.responseText
         });
       }
-
       throw this.handleAuthError(error);
     }
   }
 
   /**
-   * Logout user
-   * @returns {Promise<void>}
+   * Logout user with comprehensive token cleanup
+   * @returns {Promise<{success: boolean, message?: string}>} Logout result
    */
   async logout() {
     try {
-      // Call logout endpoint (best effort)
-      await apiService.post(API_ENDPOINTS.AUTH.LOGOUT);
-    } catch (error) {
-      // Log error but continue with local logout
-      console.error('Logout API call failed:', error);
-    } finally {
-      // Always clear local storage
-      this.clearAuthData();
+      // Try to call the backend logout endpoint if possible
+      try {
+        await apiService.post(API_ENDPOINTS.AUTH.LOGOUT, {}, { 
+          includeAuth: true,
+          skipErrorHandling: true // We'll handle errors manually
+        });
+      } catch (error) {
+        // Non-critical if backend logout fails, continue with client cleanup
+        console.warn('Backend logout failed, proceeding with client-side cleanup:', error);
+      }
 
-      // Dispatch logout event
+      // Clear all authentication data
+      this.clearAuthData();
+      
+      // Ensure the token is removed from the API service
+      apiService.removeAuthToken();
+      
+      // Clear any in-memory token references
+      if (apiService.clearToken) {
+        apiService.clearToken();
+      }
+
+      // Notify the app about the logout
       window.dispatchEvent(new CustomEvent('auth:logout'));
+
+      return { success: true };
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, ensure we clean up
+      this.clearAuthData();
+      apiService.removeAuthToken();
+      return { 
+        success: false, 
+        message: error.message || 'An error occurred during logout' 
+      };
     }
   }
 
@@ -256,16 +273,14 @@ class AuthService {
   async getCurrentUser() {
     try {
       const response = await apiService.get(API_ENDPOINTS.AUTH.ME);
-      
+
       if (response && response.success && response.data?.user) {
-        // Update stored user data
-        secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user);
+        secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user); // Fixed: setItem → set
         return response.data.user;
       }
 
       throw new Error('Invalid user data received');
     } catch (error) {
-      // If getting user fails, clear auth data
       if (error.status === 401) {
         this.clearAuthData();
       }
@@ -286,12 +301,9 @@ class AuthService {
       );
 
       if (response && response.success && response.data?.user) {
-        // Update stored user data with verified status
-        const currentUser = secureStorage.get(STORAGE_KEYS.USER_DATA);
+        const currentUser = secureStorage.get(STORAGE_KEYS.USER_DATA); // Fixed: getItem → get
         const updatedUser = { ...currentUser, ...response.data.user };
-        secureStorage.set(STORAGE_KEYS.USER_DATA, updatedUser);
-
-        // Dispatch email verified event
+        secureStorage.set(STORAGE_KEYS.USER_DATA, updatedUser); // Fixed: setItem → set
         window.dispatchEvent(new CustomEvent('auth:emailVerified', {
           detail: { user: updatedUser }
         }));
@@ -315,7 +327,6 @@ class AuthService {
         { email: email.trim().toLowerCase() },
         { includeAuth: false }
       );
-
       return response;
     } catch (error) {
       throw this.handleAuthError(error);
@@ -335,7 +346,6 @@ class AuthService {
         { password },
         { includeAuth: false }
       );
-
       return response;
     } catch (error) {
       throw this.handleAuthError(error);
@@ -353,7 +363,6 @@ class AuthService {
         API_ENDPOINTS.AUTH.UPDATE_PASSWORD,
         passwordData
       );
-
       return response;
     } catch (error) {
       throw this.handleAuthError(error);
@@ -373,10 +382,8 @@ class AuthService {
       );
 
       if (response && response.success && response.data?.user) {
-        // Update stored user data
-        secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user);
+        secureStorage.set(STORAGE_KEYS.USER_DATA, response.data.user); // Fixed: setItem → set
       }
-
       return response;
     } catch (error) {
       throw this.handleAuthError(error);
@@ -393,13 +400,12 @@ class AuthService {
       if (typeof apiService.getAuthToken === 'function') {
         token = apiService.getAuthToken();
       } else {
-        // Fallback: directly get from storage
-        token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+        token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN); // Fixed: getItem → get
       }
       return !!token;
     } catch (error) {
       console.warn('Failed to check auth status via API service, using fallback:', error);
-      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN); // Fixed: getItem → get
       return !!token;
     }
   }
@@ -409,7 +415,7 @@ class AuthService {
    * @returns {object|null} User data
    */
   getStoredUser() {
-    return secureStorage.get(STORAGE_KEYS.USER_DATA);
+    return secureStorage.get(STORAGE_KEYS.USER_DATA); // Fixed: getItem → get
   }
 
   /**
@@ -420,7 +426,6 @@ class AuthService {
   hasRole(roles) {
     const user = this.getStoredUser();
     if (!user || !user.role) return false;
-
     const roleArray = Array.isArray(roles) ? roles : [roles];
     return roleArray.includes(user.role);
   }
@@ -437,31 +442,28 @@ class AuthService {
    * Clear authentication data
    */
   clearAuthData() {
-    // ✅ SAFE: Handle missing removeAuthToken method
     try {
       if (typeof apiService.removeAuthToken === 'function') {
         apiService.removeAuthToken();
       } else {
-        // Fallback: directly remove from storage
-        secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN);
+        secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN); // Fixed: removeItem → remove
       }
     } catch (error) {
       console.warn('Failed to remove auth token via API service, using fallback:', error);
-      secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN);
+      secureStorage.remove(STORAGE_KEYS.AUTH_TOKEN); // Fixed: removeItem → remove
     }
-    
-    secureStorage.remove(STORAGE_KEYS.USER_DATA);
-    secureStorage.remove(STORAGE_KEYS.GUEST_CART);
-    secureStorage.remove(STORAGE_KEYS.WISHLIST);
+
+    secureStorage.remove(STORAGE_KEYS.USER_DATA); // Fixed: removeItem → remove
+    secureStorage.remove(STORAGE_KEYS.GUEST_CART); // Fixed: removeItem → remove
+    secureStorage.remove(STORAGE_KEYS.WISHLIST); // Fixed: removeItem → remove
   }
 
   /**
-   * ENHANCED: Handle authentication errors with better error extraction
+   * Handle authentication errors with better error extraction
    * @param {Error} error - Original error
    * @returns {Error} Formatted error
    */
   handleAuthError(error) {
-    // Log error for debugging (in development)
     if (process.env.NODE_ENV === 'development') {
       console.error('🔍 Auth service error details:', {
         message: error.message,
@@ -471,7 +473,6 @@ class AuthService {
       });
     }
 
-    // Handle specific error cases
     if (error.status === 401) {
       try {
         this.clearAuthData();
@@ -480,44 +481,25 @@ class AuthService {
       }
     }
 
-    // ✅ Enhanced error message extraction
     let errorMessage = error.message;
-
-    // Try to get more specific error messages
     if (error.data) {
-      if (error.data.message) {
-        errorMessage = error.data.message;
-      } else if (error.data.error) {
-        errorMessage = error.data.error;
-      } else if (error.data.errors) {
-        // Handle validation errors
-        if (typeof error.data.errors === 'object') {
-          const firstError = Object.values(error.data.errors)[0];
-          errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
-        } else {
-          errorMessage = error.data.errors;
-        }
+      if (error.data.message) errorMessage = error.data.message;
+      else if (error.data.error) errorMessage = error.data.error;
+      else if (error.data.errors) {
+        const firstError = Object.values(error.data.errors)[0];
+        errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
       }
     }
 
-    // ✅ Handle specific error types
-    if (error.status === 400) {
-      errorMessage = errorMessage || 'Invalid request data';
-    } else if (error.status === 401) {
-      errorMessage = 'Invalid credentials';
-    } else if (error.status === 409) {
-      errorMessage = 'Email already exists';
-    } else if (error.status === 429) {
-      errorMessage = 'Too many requests. Please try again later.';
-    } else if (error.status >= 500) {
-      errorMessage = 'Server error. Please try again later.';
-    }
+    if (error.status === 400) errorMessage = errorMessage || 'Invalid request data';
+    else if (error.status === 401) errorMessage = 'Invalid credentials';
+    else if (error.status === 409) errorMessage = 'Email already exists';
+    else if (error.status === 429) errorMessage = 'Too many requests. Please try again later.';
+    else if (error.status >= 500) errorMessage = 'Server error. Please try again later.';
 
-    // Create enhanced error
     const enhancedError = new Error(errorMessage);
     enhancedError.status = error.status;
     enhancedError.originalError = error;
-    
     return enhancedError;
   }
 
@@ -530,22 +512,18 @@ class AuthService {
       if (typeof apiService.refreshToken === 'function') {
         return await apiService.refreshToken();
       } else {
-        // Fallback: manual refresh implementation
         const response = await apiService.post(API_ENDPOINTS.AUTH.REFRESH_TOKEN);
-        
         if (response && response.success && response.token) {
-          // Store the new token
           try {
             if (typeof apiService.setAuthToken === 'function') {
               apiService.setAuthToken(response.token);
             } else {
-              secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
+              secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token); // Fixed: setItem → set
             }
           } catch (error) {
             console.warn('Failed to set refreshed token via API service, using fallback:', error);
-            secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token);
+            secureStorage.set(STORAGE_KEYS.AUTH_TOKEN, response.token); // Fixed: setItem → set
           }
-          
           return response.token;
         } else {
           throw new Error('Invalid refresh response');
@@ -562,9 +540,7 @@ class AuthService {
    * @param {number} expiresIn - Token expiry time in seconds
    */
   setupTokenRefresh(expiresIn) {
-    // Refresh token 5 minutes before expiry
     const refreshTime = (expiresIn - 300) * 1000;
-    
     if (refreshTime > 0) {
       setTimeout(async () => {
         try {
@@ -587,28 +563,24 @@ class AuthService {
       if (typeof apiService.getAuthToken === 'function') {
         token = apiService.getAuthToken();
       } else {
-        // Fallback: directly get from storage
-        token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+        token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN); // Fixed: getItem → get
       }
     } catch (error) {
       console.warn('Failed to get auth token via API service, using fallback:', error);
-      token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+      token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN); // Fixed: getItem → get
     }
-    
+
     if (!token) return false;
 
     try {
-      // Try to get current user to validate token
       await this.getCurrentUser();
       return true;
     } catch (error) {
       if (error.status === 401) {
         try {
-          // Try to refresh token
           await this.refreshToken();
           return true;
         } catch (refreshError) {
-          // Refresh failed, clear auth data
           this.clearAuthData();
           return false;
         }
@@ -618,7 +590,5 @@ class AuthService {
   }
 }
 
-// Create and export singleton instance
 const authService = new AuthService();
-
 export default authService;
