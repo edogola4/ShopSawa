@@ -5,8 +5,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { AppProvider } from './context/AppContext';
+import { NotificationProvider } from './context/NotificationContext';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import AdminRoute from './components/common/AdminRoute';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -18,7 +20,21 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
 import NotFoundPage from './pages/NotFoundPage';
+
+// Admin Pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminLoginPage from './pages/admin/AdminLoginPage';
+import AdminRegisterPage from './pages/admin/AdminRegisterPage';
+
+// Static Pages
+import AboutPage from './pages/static/AboutPage';
+import ContactPage from './pages/static/ContactPage';
+import TermsPage from './pages/static/TermsPage';
+import PrivacyPage from './pages/static/PrivacyPage';
+import AccessibilityPage from './pages/static/AccessibilityPage';
+import FAQPage from './pages/static/FAQPage';
 
 // Import CSS
 import './styles/globals.css';
@@ -34,10 +50,13 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <AppProvider>
-            <div className="App">
+            <NotificationProvider>
+              <div className="App">
               <Routes>
                 {/* Public Routes - No Layout */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/admin/login" element={<AdminLoginPage />} />
+                <Route path="/admin/register" element={<AdminRegisterPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 
                 {/* Public Routes - With Layout */}
@@ -66,12 +85,48 @@ function App() {
                     </ProtectedRoute>
                   } />
                   
+                  <Route path="orders" element={
+                    <ProtectedRoute>
+                      <OrderHistoryPage />
+                    </ProtectedRoute>
+                  } />
+                  
                   {/* Static Pages */}
                   <Route path="about" element={<AboutPage />} />
                   <Route path="contact" element={<ContactPage />} />
                   <Route path="terms" element={<TermsPage />} />
                   <Route path="privacy" element={<PrivacyPage />} />
                   <Route path="faq" element={<FAQPage />} />
+                  <Route path="shipping" element={<Navigate to="/faq#shipping" replace />} />
+                  <Route path="returns" element={<Navigate to="/faq#returns" replace />} />
+                  <Route path="size-guide" element={<Navigate to="/faq#sizing" replace />} />
+                  <Route path="track-order" element={<Navigate to="/profile/orders" replace />} />
+                  <Route path="help" element={<Navigate to="/contact" replace />} />
+                  <Route path="careers" element={<Navigate to="/about#careers" replace />} />
+                  <Route path="blog" element={<Navigate to="/" replace />} />
+                  <Route path="sustainability" element={<Navigate to="/about" replace />} />
+                  <Route path="accessibility" element={<AccessibilityPage />} />
+                  <Route path="consumer-rights" element={<Navigate to="/terms" replace />} />
+                  <Route path="refund-policy" element={<Navigate to="/terms#refunds" replace />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="admin" element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  } />
+                  
+                  {/* Catch-all route for admin sub-routes */}
+                  <Route path="admin/*" element={
+                    <AdminRoute>
+                      <Routes>
+                        <Route index element={<Navigate to="/admin" replace />} />
+                        <Route path="dashboard" element={<AdminDashboard />} />
+                        {/* Add more admin sub-routes here as needed */}
+                      </Routes>
+                    </AdminRoute>
+                  } />
+                  <Route path="cookies" element={<Navigate to="/privacy#cookies" replace />} />
                   
                   {/* Category Routes */}
                   <Route path="categories" element={<CategoriesPage />} />
@@ -85,7 +140,8 @@ function App() {
                   <Route path="*" element={<Navigate to="/404" replace />} />
                 </Route>
               </Routes>
-            </div>
+              </div>
+            </NotificationProvider>
           </AppProvider>
         </CartProvider>
       </AuthProvider>
@@ -93,239 +149,56 @@ function App() {
   );
 }
 
-// ... (rest of your component code stays the same)
-
-// Placeholder components for static pages
-const AboutPage = () => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">About ShopSawa</h1>
-      <div className="prose prose-lg max-w-none">
-        <p className="text-xl text-gray-600 mb-6">
-          ShopSawa is Kenya's premier online shopping destination, offering quality products 
-          at competitive prices with exceptional customer service.
-        </p>
-        <p className="text-gray-700 mb-4">
-          Founded with the mission to make online shopping accessible and enjoyable for everyone, 
-          we've grown to serve thousands of customers across Kenya. Our commitment to quality, 
-          reliability, and customer satisfaction drives everything we do.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">Our Values</h2>
-        <ul className="list-disc pl-6 space-y-2 text-gray-700">
-          <li>Customer satisfaction is our top priority</li>
-          <li>Quality products at affordable prices</li>
-          <li>Fast and reliable delivery service</li>
-          <li>Secure and convenient payment options</li>
-          <li>Supporting local businesses and communities</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-);
-
-const ContactPage = () => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8 text-center">Contact Us</h1>
-      <div className="bg-white rounded-lg shadow-lg p-8">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Customer Service</h3>
-            <p className="text-gray-600">Email: support@shopsawa.com</p>
-            <p className="text-gray-600">Phone: +254 700 123 456</p>
-            <p className="text-gray-600">Hours: Mon-Fri 8AM-6PM, Sat 9AM-4PM</p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Business Address</h3>
-            <p className="text-gray-600">
-              ShopSawa Ltd<br />
-              123 Commerce Street<br />
-              Nairobi, Kenya<br />
-              P.O. Box 12345-00100
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Follow Us</h3>
-            <div className="flex space-x-4">
-              <a href="https://facebook.com/shopsawa" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">Facebook</a>
-              <a href="https://twitter.com/shopsawa" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">Twitter</a>
-              <a href="https://instagram.com/shopsawa" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">Instagram</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const TermsPage = () => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">Terms of Service</h1>
-      <div className="prose prose-lg max-w-none">
-        <p className="text-gray-600 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
-        <p className="mb-4">
-          Welcome to ShopSawa. These terms and conditions outline the rules and regulations 
-          for the use of ShopSawa's Website and services.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Acceptance of Terms</h2>
-        <p className="mb-4">
-          By accessing and using this website, you accept and agree to be bound by the terms 
-          and provision of this agreement.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Products and Services</h2>
-        <p className="mb-4">
-          All products and services are subject to availability. We reserve the right to 
-          discontinue any product or service without notice.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">3. Payment Terms</h2>
-        <p className="mb-4">
-          Payment is required at the time of purchase. We accept various payment methods 
-          including M-Pesa, credit cards, and other approved payment systems.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Shipping and Delivery</h2>
-        <p className="mb-4">
-          We strive to deliver products within the estimated timeframe. Delivery times may 
-          vary based on location and product availability.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">5. Returns and Refunds</h2>
-        <p className="mb-4">
-          Items may be returned within 30 days of purchase in original condition. 
-          Refunds will be processed within 3-5 business days.
-        </p>
-      </div>
-    </div>
-  </div>
-);
-
-const PrivacyPage = () => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
-      <div className="prose prose-lg max-w-none">
-        <p className="text-gray-600 mb-6">Last updated: {new Date().toLocaleDateString()}</p>
-        <p className="mb-4">
-          At ShopSawa, we are committed to protecting your privacy and personal information. 
-          This Privacy Policy explains how we collect, use, and safeguard your information.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">Information We Collect</h2>
-        <p className="mb-4">
-          We collect information you provide directly to us, such as when you create an account, 
-          make a purchase, or contact us for support.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">How We Use Your Information</h2>
-        <p className="mb-4">
-          We use your information to process orders, provide customer service, send updates 
-          about your orders, and improve our services.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">Information Sharing</h2>
-        <p className="mb-4">
-          We do not sell, trade, or otherwise transfer your personal information to third parties 
-          without your consent, except as described in this policy.
-        </p>
-        <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">Data Security</h2>
-        <p className="mb-4">
-          We implement appropriate security measures to protect your personal information 
-          against unauthorized access, alteration, disclosure, or destruction.
-        </p>
-      </div>
-    </div>
-  </div>
-);
-
-const FAQPage = () => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8 text-center">
-        Frequently Asked Questions
-      </h1>
-      <div className="space-y-8">
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            How do I place an order?
-          </h3>
-          <p className="text-gray-700">
-            Simply browse our products, add items to your cart, and proceed to checkout. 
-            You'll need to create an account or log in to complete your purchase.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            What payment methods do you accept?
-          </h3>
-          <p className="text-gray-700">
-            We accept M-Pesa, credit/debit cards, and other secure payment methods. 
-            All transactions are encrypted and secure.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            How long does delivery take?
-          </h3>
-          <p className="text-gray-700">
-            Standard delivery takes 2-5 business days within Kenya. Express delivery 
-            is available for 1-2 business days with additional charges.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            Can I return or exchange items?
-          </h3>
-          <p className="text-gray-700">
-            Yes, you can return items within 30 days of purchase in original condition. 
-            Contact our customer service team to initiate a return.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-3">
-            Is there a minimum order for free shipping?
-          </h3>
-          <p className="text-gray-700">
-            Yes, we offer free shipping on orders over KSh 2,000. Orders below this amount 
-            will have standard shipping charges applied.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
+// Categories Page Component
 const CategoriesPage = () => (
   <div className="container mx-auto px-4 py-16">
-    <div className="max-w-6xl mx-auto text-center">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">Shop by Category</h1>
-      <p className="text-xl text-gray-600 mb-12">
-        Explore our wide range of product categories
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {/* This would be populated with actual categories from the API */}
-        <div className="text-center">
-          <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📱</span>
+    <div className="max-w-6xl mx-auto">
+      <h1 className="text-4xl font-bold text-gray-900 mb-12 text-center">Shop by Category</h1>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        {[
+          { name: 'Electronics', count: 156, icon: '📱' },
+          { name: 'Fashion', count: 243, icon: '👕' },
+          { name: 'Home & Living', count: 189, icon: '🏠' },
+          { name: 'Beauty & Personal Care', count: 98, icon: '💄' },
+          { name: 'Sports & Outdoors', count: 76, icon: '⚽' },
+          { name: 'Books & Media', count: 112, icon: '📚' },
+        ].map((category, index) => (
+          <div 
+            key={index}
+            className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="p-6">
+              <div className="text-4xl mb-4">{category.icon}</div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">{category.name}</h2>
+              <p className="text-gray-600">{category.count} products</p>
+              <button 
+                onClick={() => window.location.href = `/products?category=${category.name.toLowerCase()}`}
+                className="mt-4 text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+              >
+                Shop now
+                <svg 
+                  className="w-4 h-4 ml-1" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5l7 7-7 7" 
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-          <h3 className="font-semibold text-gray-900">Electronics</h3>
-        </div>
-        <div className="text-center">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">👕</span>
-          </div>
-          <h3 className="font-semibold text-gray-900">Fashion</h3>
-        </div>
-        <div className="text-center">
-          <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🏠</span>
-          </div>
-          <h3 className="font-semibold text-gray-900">Home & Garden</h3>
-        </div>
-        <div className="text-center">
-          <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">💄</span>
-          </div>
-          <h3 className="font-semibold text-gray-900">Beauty</h3>
-        </div>
+        ))}
       </div>
     </div>
   </div>
 );
 
+// Main application component
 export default App;
