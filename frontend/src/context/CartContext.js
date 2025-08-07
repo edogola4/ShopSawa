@@ -410,7 +410,13 @@ const cartReducer = (state, action) => {
  * @returns {Object} - Formatted cart data
  */
 const extractCartData = (cart) => {
+  console.group('[extractCartData] Starting cart data extraction');
+  console.log('[extractCartData] Raw cart data type:', typeof cart);
+  console.log('[extractCartData] Raw cart data:', cart);
+  
   if (!cart) {
+    console.warn('[extractCartData] No cart data provided, returning empty cart');
+    console.groupEnd();
     return {
       cart: null,
       items: [],
@@ -426,61 +432,129 @@ const extractCartData = (cart) => {
     };
   }
 
-  // Handle different API response formats
-  const isNestedData = cart.data && cart.data.cart;
-  const cartData = isNestedData ? cart.data.cart : cart;
-  const items = cartData.items || [];
-  
-  // Calculate item count and unique items
-  const itemCount = items.reduce((total, item) => total + (item.quantity || 1), 0);
-  const uniqueItems = items.length;
+  try {
+    // Handle different API response formats
+    let cartData;
+    if (cart.data && cart.data.cart) {
+      // Case: { data: { cart: {...} } }
+      cartData = cart.data.cart;
+      console.log('[extractCartData] Using nested cart data from response.data.cart');
+    } else if (cart.data) {
+      // Case: { data: { items: [...], totals: {...} } }
+      cartData = cart.data;
+      console.log('[extractCartData] Using cart data from response.data');
+    } else {
+      // Case: { items: [...], totals: {...} } or direct cart object
+      cartData = cart;
+      console.log('[extractCartData] Using cart data directly from response');
+    }
 
-  // Extract summary from API or calculate from items
-  let summary = {
-    subtotal: 0,
-    tax: 0,
-    shipping: 0,
-    discount: 0,
-    total: 0,
-    itemCount,
-    uniqueItems
-  };
+    // Ensure items is an array
+    const items = Array.isArray(cartData.items) ? cartData.items : [];
+    console.log(`[extractCartData] Found ${items.length} items in cart`);
+    
+    // Calculate item count and unique items
+    const itemCount = items.reduce((total, item) => total + (item.quantity || 1), 0);
+    const uniqueItems = items.length;
 
-  if (cartData.totals) {
-    // Use server-calculated totals if available
-    summary = {
-      ...summary,
-      subtotal: cartData.totals.subtotal || 0,
-      tax: cartData.totals.tax || 0,
-      shipping: cartData.totals.shipping || 0,
-      discount: cartData.totals.discount || 0,
-      total: cartData.totals.total || 0
+    console.log('[extractCartData] Cart summary:', { itemCount, uniqueItems });
+
+    // Extract summary from API or calculate from items
+    let summary = {
+      subtotal: 0,
+      tax: 0,
+      shipping: 0,
+      discount: 0,
+      total: 0,
+      itemCount,
+      uniqueItems
     };
-  } else {
-    // Calculate client-side if no server totals
-    const subtotal = items.reduce((sum, item) => {
-      return sum + (item.price * (item.quantity || 1));
-    }, 0);
 
-    const discount = cartData.discount || 0;
-    const shipping = cartData.shipping || 0;
-    const tax = cartData.tax || 0;
+    // Check if we have server-calculated totals
+    if (cartData.totals && typeof cartData.totals === 'object') {
+      console.log('[extractCartData] Using server-calculated totals');
+      summary = {
+        ...summary,
+        subtotal: parseFloat(cartData.totals.subtotal) || 0,
+        tax: parseFloat(cartData.totals.tax) || 0,
+        shipping: parseFloat(cartData.totals.shipping) || 0,
+        discount: parseFloat(cartData.totals.discount) || 0,
+        total: parseFloat(cartData.totals.total) || 0
+      };
+    } else {
+      // Calculate client-side if no server totals
+      console.log('[extractCartData] Calculating client-side totals');
+      const subtotal = items.reduce((sum, item) => {
+        const price = parseFloat(item.product?.price || item.price || 0);
+        const quantity = parseInt(item.quantity || 1, 10);
+        return sum + (price * quantity);
+      }, 0);
 
-    summary = {
-      ...summary,
-      subtotal,
-      tax,
-      shipping,
-      discount,
-      total: subtotal + tax + shipping - discount
+      const discount = parseFloat(cartData.discount) || 0;
+      const shipping = parseFloat(cartData.shipping) || 0;
+      const tax = parseFloat(cartData.tax) || 0;
+
+      summary = {
+        ...summary,
+        subtotal,
+        tax,
+        shipping,
+        discount,
+        total: subtotal + tax + shipping - discount
+      };
+    }
+
+    console.log('[extractCartData] Final cart summary:', summary);
+
+    // Ensure each item has the required structure
+    const processedItems = items.map(item => {
+      // If item has a nested product, use that, otherwise use the item itself
+      const product = item.product || item;
+      return {
+        ...item,
+        product: {
+          _id: product._id || product.id,
+          name: product.name || 'Unnamed Product',
+          price: parseFloat(product.price) || 0,
+          images: Array.isArray(product.images) ? product.images : [],
+          stock: parseInt(product.stock, 10) || 0,
+          status: product.status || 'active',
+          sku: product.sku || `SKU-${product._id || ''}`,
+          ...(product.category && { category: product.category })
+        },
+        quantity: parseInt(item.quantity, 10) || 1
+      };
+    });
+
+    const result = {
+      cart: cartData,
+      items: processedItems,
+      summary
+    };
+
+    console.log('[extractCartData] Processed cart data:', result);
+    console.log('[extractCartData] Processed cart items:', result.items);
+    console.log('[extractCartData] Processed cart summary:', result.summary);
+    console.groupEnd();
+    return result;
+  } catch (error) {
+    console.error('[extractCartData] Error processing cart data:', error);
+    console.groupEnd();
+    // Return empty cart on error
+    return {
+      cart: null,
+      items: [],
+      summary: {
+        subtotal: 0,
+        tax: 0,
+        shipping: 0,
+        discount: 0,
+        total: 0,
+        itemCount: 0,
+        uniqueItems: 0
+      }
     };
   }
-
-  return {
-    cart: cartData,
-    items,
-    summary
-  };
 };
 
 // =============================================================================
@@ -529,11 +603,22 @@ export const CartProvider = ({ children }) => {
    * Load cart data
    */
   const loadCart = useCallback(async () => {
+    console.log('[CartContext] loadCart called');
     dispatch({ type: ActionTypes.LOAD_CART_START });
 
     try {
+      console.log('[CartContext] Fetching cart from cartService.getCart()');
       const response = await cartService.getCart();
+      console.log('[CartContext] Raw cart response from API:', JSON.stringify(response, null, 2));
+      
+      if (!response || !response.data) {
+        console.error('[CartContext] No data in cart response:', response);
+        throw new Error('No data received from cart service');
+      }
+      
+      console.log('[CartContext] Processing cart data with extractCartData');
       const cartData = extractCartData(response.data);
+      console.log('[CartContext] Processed cart data:', cartData);
 
       dispatch({
         type: ActionTypes.LOAD_CART_SUCCESS,
@@ -559,8 +644,20 @@ export const CartProvider = ({ children }) => {
    * Add item to cart
    */
   const addItem = useCallback(async (itemData) => {
-    const { product, quantity = 1, variant = null } = itemData;
-    if (!product || !product._id) {
+    // Handle both nested and flat product data structures
+    let product, quantity = 1, variant = null;
+    
+    if (itemData.product && itemData.product._id) {
+      // Handle nested structure from ProductCard
+      product = itemData.product;
+      quantity = itemData.quantity || 1;
+      variant = itemData.variant || null;
+    } else if (itemData._id) {
+      // Handle flat structure
+      product = itemData;
+      quantity = itemData.quantity || 1;
+      variant = itemData.variant || null;
+    } else {
       dispatch({
         type: ActionTypes.ERROR_SET,
         payload: { error: 'Invalid product data' }
@@ -594,24 +691,41 @@ export const CartProvider = ({ children }) => {
     });
 
     try {
-      // Create a minimal product object with just the ID for the cart service
-      const cartProduct = {
+      console.log('Adding item to cart with product:', {
         _id: product._id,
         name: product.name,
         price: product.price,
-        sku: product.sku,
-        images: product.images || []
-      };
-      
-      // Forward the properly structured data to cartService.addItem
-      const response = await cartService.addItem({
-        product: cartProduct,
         quantity,
         variant
       });
 
+      // Create a minimal product object with just the ID for the cart service
+      const cartProduct = {
+        _id: product._id,
+        name: product.name || 'Unnamed Product',
+        price: parseFloat(product.price) || 0,
+        sku: product.sku || `SKU-${product._id}`,
+        images: Array.isArray(product.images) ? product.images : [],
+        stock: product.stock || 0,
+        isAvailable: product.isAvailable !== false,
+        discountPercentage: product.discountPercentage || 0
+      };
+      
+      // Forward the properly structured data to cartService.addItem
+      const requestData = {
+        product: cartProduct,
+        quantity: parseInt(quantity, 10) || 1,
+        variant: variant || null
+      };
+
+      console.log('Sending to cartService.addItem:', requestData);
+      const response = await cartService.addItem(requestData);
+      console.log('Response from cartService.addItem:', response);
+
       if (response.success) {
-        const cartData = extractCartData(response.data);
+        // Instead of using the response data directly, reload the cart to ensure we have the latest state
+        const cartResponse = await cartService.getCart();
+        const cartData = extractCartData(cartResponse.data);
 
         dispatch({
           type: ActionTypes.ADD_ITEM_SUCCESS,
@@ -621,6 +735,9 @@ export const CartProvider = ({ children }) => {
             productId: product._id
           }
         });
+        
+        // Also update the cart drawer to show the new item
+        dispatch({ type: ActionTypes.OPEN_DRAWER });
 
         // Open cart drawer to show added item
         dispatch({ type: ActionTypes.OPEN_DRAWER });

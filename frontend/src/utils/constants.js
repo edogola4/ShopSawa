@@ -12,6 +12,7 @@
 // API CONFIGURATION
 // =============================================================================
 export const API_CONFIG = {
+    // Ensure the base URL includes /v1 for the API version
     BASE_URL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001/api/v1',
     IMAGE_BASE_URL: process.env.REACT_APP_IMAGE_BASE_URL || 'http://localhost:5001',
     TIMEOUT: 30000, // 30 seconds
