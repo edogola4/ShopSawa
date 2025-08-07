@@ -167,34 +167,56 @@ const getDashboardOverview = catchAsync(async (req, res, next) => {
   const currentUserCount = await User.countDocuments({ createdAt: { $gte: startDate } });
   const userGrowth = previousUsers > 0 ? ((currentUserCount - previousUsers) / previousUsers * 100) : 0;
 
-  res.status(200).json({
+  // Format the response to match the frontend's expected structure
+  const response = {
     status: 'success',
+    results: 'Dashboard data retrieved successfully',
     data: {
       overview: {
         totalUsers,
         totalOrders,
         totalProducts,
-        totalRevenue: currentRevenue,
+        totalRevenue: totalRevenue[0]?.totalRevenue || 0,
         averageOrderValue: totalRevenue[0]?.averageOrderValue || 0,
-        growth: {
-          revenue: Math.round(revenueGrowth * 100) / 100,
-          orders: Math.round(orderGrowth * 100) / 100,
-          users: Math.round(userGrowth * 100) / 100
-        }
+        orderCount: totalRevenue[0]?.orderCount || 0,
+        orderStats: orderStats.reduce((acc, stat) => ({
+          ...acc,
+          [stat._id]: stat.count
+        }), {}),
+        userStats: userStats.reduce((acc, stat) => ({
+          ...acc,
+          [stat._id]: stat.count
+        }), {})
       },
       recentActivity: {
-        orders: recentOrders,
-        users: recentUsers
+        orders: recentOrders.map(order => ({
+          ...order.toObject(),
+          customer: order.customer || { firstName: 'Guest', lastName: '' },
+          summary: order.summary || { total: 0 }
+        })),
+        users: recentUsers.map(user => ({
+          ...user.toObject(),
+          firstName: user.firstName || 'User',
+          lastName: user.lastName || '',
+          role: user.role || 'customer'
+        }))
       },
-      statistics: {
-        orders: orderStats,
-        users: userStats,
-        products: productStats
-      },
-      topProducts,
-      period
+      topProducts: topProducts.map(p => ({
+        _id: p._id,
+        name: p.productName,
+        price: p.averagePrice,
+        image: '/images/placeholder.png',
+        stock: 0,
+        sold: p.totalSold,
+        status: 'active'
+      }))
     }
-  });
+  };
+
+  // Log the response for debugging
+  console.log('Dashboard response:', JSON.stringify(response, null, 2));
+  
+  res.status(200).json(response);
 });
 
 /**

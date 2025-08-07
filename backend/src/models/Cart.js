@@ -265,26 +265,70 @@ const cartSchema = new mongoose.Schema({
   
   // Instance method to add item
   cartSchema.methods.addItem = async function(productData) {
-    const existingItemIndex = this.items.findIndex(item => 
-      item.product.toString() === productData.product.toString() &&
-      JSON.stringify(item.variant) === JSON.stringify(productData.variant)
-    );
-  
-    if (existingItemIndex > -1) {
-      // Update existing item
-      this.items[existingItemIndex].quantity += productData.quantity || 1;
-      this.items[existingItemIndex].updatedAt = new Date();
-    } else {
-      // Add new item
-      this.items.push({
-        ...productData,
-        addedAt: new Date(),
-        updatedAt: new Date()
+    try {
+      console.log('Adding item to cart:', {
+        cartId: this._id,
+        productData: {
+          productId: productData.product,
+          quantity: productData.quantity,
+          variant: productData.variant
+        }
       });
+
+      // Ensure productData has required fields
+      if (!productData.product) {
+        throw new Error('Product ID is required');
+      }
+
+      // Convert product to string for comparison
+      const productId = productData.product.toString();
+      
+      // Find existing item with same product and variant
+      const existingItemIndex = this.items.findIndex(item => {
+        const isSameProduct = item.product && item.product.toString() === productId;
+        const isSameVariant = JSON.stringify(item.variant) === JSON.stringify(productData.variant || {});
+        return isSameProduct && isSameVariant;
+      });
+    
+      if (existingItemIndex > -1) {
+        // Update existing item
+        console.log('Updating existing item at index:', existingItemIndex);
+        this.items[existingItemIndex].quantity += productData.quantity || 1;
+        this.items[existingItemIndex].updatedAt = new Date();
+      } else {
+        // Add new item
+        console.log('Adding new item to cart');
+        const newItem = {
+          ...productData,
+          addedAt: new Date(),
+          updatedAt: new Date(),
+          // Ensure required fields have default values
+          quantity: productData.quantity || 1,
+          price: productData.price || 0,
+          name: productData.name || 'Unnamed Product',
+          sku: productData.sku || `SKU-${productData.product}`
+        };
+        this.items.push(newItem);
+      }
+    
+      // Save the cart
+      console.log('Saving cart with items:', this.items.length);
+      const savedCart = await this.save();
+      console.log('Cart saved successfully');
+      return savedCart;
+    } catch (error) {
+      console.error('Error in addItem:', {
+        error: error.message,
+        stack: error.stack,
+        productData: productData ? {
+          product: productData.product,
+          name: productData.name,
+          quantity: productData.quantity,
+          hasVariant: !!productData.variant
+        } : 'No product data'
+      });
+      throw error; // Re-throw the error to be handled by the controller
     }
-  
-    await this.save();
-    return this;
   };
   
   // Instance method to remove item

@@ -7,16 +7,15 @@ const AppError = require('../../utils/appError');
 const APIFeatures = require('../../utils/apiFeatures');
 
 const getAllCategories = catchAsync(async (req, res, next) => {
-  const features = new APIFeatures(Category.find({ isActive: true }), req.query)
-    .filter()
-    .search()
-    .sort()
-    .limitFields()
-    .paginate();
-
-  const categories = await features.query
+  console.log('🔍 Querying categories with isActive: true');
+  
+  // Get all active categories with a simple query
+  const categories = await Category.find({ isActive: true })
     .populate('parent', 'name slug')
-    .populate('createdBy', 'name email');
+    .populate('createdBy', 'name email')
+    .sort({ name: 1 }); // Sort by name by default
+    
+  console.log(`✅ Found ${categories.length} active categories`);
 
   res.status(200).json({
     status: 'success',
@@ -40,35 +39,39 @@ const getCategoriesWithCounts = catchAsync(async (req, res, next) => {
 
   console.log(`📂 Found ${categories.length} categories`);
 
-  // Get product counts for each category in parallel
-  const categoriesWithCounts = await Promise.all(
-    categories.map(async (category) => {
-      try {
-        // Count active products in this category
-        const productCount = await Product.countDocuments({
-          category: category._id,
-          status: 'active'
-        });
-
-        console.log(`📊 Category "${category.name}": ${productCount} products`);
-
-        return {
-          ...category,
-          productCount: productCount,
-          count: productCount,        // ✅ Add count field
-          total: productCount         // ✅ Add total field
-        };
-      } catch (error) {
-        console.error(`❌ Error counting products for category ${category.name}:`, error);
-        return {
-          ...category,
-          productCount: 0,
-          count: 0,
-          total: 0
-        };
+  // Get all active products with their categories
+  const products = await Product.find({ status: 'active' }).select('category');
+  
+  // Create a map of category IDs to product counts
+  const categoryProductCounts = {};
+  
+  // Initialize all category counts to 0
+  categories.forEach(category => {
+    categoryProductCounts[category._id.toString()] = 0;
+  });
+  
+  // Count products in each category
+  products.forEach(product => {
+    if (product.category) {
+      const categoryId = product.category.toString();
+      if (categoryProductCounts.hasOwnProperty(categoryId)) {
+        categoryProductCounts[categoryId]++;
       }
-    })
-  );
+    }
+  });
+  
+  // Add product counts to categories
+  const categoriesWithCounts = categories.map(category => {
+    const productCount = categoryProductCounts[category._id.toString()] || 0;
+    console.log(`📊 Category "${category.name}": ${productCount} products`);
+    
+    return {
+      ...category,
+      productCount: productCount,
+      count: productCount,
+      total: productCount
+    };
+  });
 
   console.log('✅ Categories with counts processed successfully');
 
@@ -126,6 +129,7 @@ const getCategory = catchAsync(async (req, res, next) => {
 });
 
 const createCategory = catchAsync(async (req, res, next) => {
+  console.log('REQ BODY:', req.body);
   const categoryData = {
     ...req.body,
     createdBy: req.user.id,

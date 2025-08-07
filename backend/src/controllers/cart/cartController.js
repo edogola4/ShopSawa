@@ -47,85 +47,135 @@ const getCart = catchAsync(async (req, res, next) => {
  * POST /api/cart/items
  */
 const addToCart = catchAsync(async (req, res, next) => {
-  const { productId, quantity = 1, variant } = req.body;
-  const userId = req.user._id;
+  try {
+    console.log('Received add to cart request:', {
+      body: req.body,
+      user: req.user._id
+    });
 
-  // Validate input
-  if (!productId) {
-    return next(new AppError('Product ID is required', 400));
-  }
+    const { productId, quantity = 1, variant } = req.body;
+    const userId = req.user._id;
 
-  if (quantity < 1) {
-    return next(new AppError('Quantity must be at least 1', 400));
-  }
+    // Validate input
+    if (!productId) {
+      console.error('Product ID is required');
+      return next(new AppError('Product ID is required', 400));
+    }
 
-  // Check if product exists and is available
-  const product = await Product.findById(productId);
-  if (!product) {
-    return next(new AppError('Product not found', 404));
-  }
+    if (quantity < 1) {
+      console.error('Invalid quantity:', quantity);
+      return next(new AppError('Quantity must be at least 1', 400));
+    }
 
-  if (product.status !== 'active') {
-    return next(new AppError('Product is not available', 400));
-  }
+    // Check if product exists and is available
+    const product = await Product.findById(productId);
+    if (!product) {
+      console.error('Product not found:', productId);
+      return next(new AppError('Product not found', 404));
+    }
 
-  if (product.stock < quantity) {
-    return next(new AppError(`Only ${product.stock} units available`, 400));
-  }
+    if (product.status !== 'active') {
+      console.error('Product not active:', productId);
+      return next(new AppError('Product is not available', 400));
+    }
 
-  // Get or create user's cart
-  let cart = await Cart.findOne({ 
-    user: userId, 
-    isActive: true 
-  });
+    if (product.stock < quantity) {
+      console.error('Insufficient stock:', { requested: quantity, available: product.stock });
+      return next(new AppError(`Only ${product.stock} units available`, 400));
+    }
 
-  if (!cart) {
-    cart = await Cart.create({
-      user: userId,
-      items: [],
-      totals: {
-        subtotal: 0,
-        discount: 0,
-        tax: 0,
-        shipping: 0,
-        total: 0,
-        itemCount: 0,
-        uniqueItems: 0
+    // Get or create user's cart
+    let cart = await Cart.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    console.log('Found existing cart:', cart ? cart._id : 'No cart found, creating new one');
+
+    if (!cart) {
+      try {
+        cart = await Cart.create({
+          user: userId,
+          items: [],
+          totals: {
+            subtotal: 0,
+            discount: 0,
+            tax: 0,
+            shipping: 300, // Default shipping cost
+            total: 300,    // Shipping cost only for empty cart
+            itemCount: 0,
+            uniqueItems: 0
+          }
+        });
+        console.log('Created new cart:', cart._id);
+      } catch (createError) {
+        console.error('Error creating cart:', createError);
+        return next(new AppError('Failed to create cart', 500));
+      }
+    }
+
+    // Prepare cart item data
+    const cartItemData = {
+      product: productId,
+      name: product.name,
+      sku: product.sku,
+      price: product.price,
+      quantity: quantity,
+      variant: variant || null,
+      image: {
+        url: product.images[0]?.url || '',
+        alt: product.images[0]?.alt || product.name
+      },
+      availability: {
+        inStock: product.stock > 0,
+        quantity: product.stock
+      }
+    };
+
+    console.log('Adding item to cart:', {
+      cartId: cart._id,
+      productId,
+      quantity,
+      variant
+    });
+
+    // Add item to cart using the model's method
+    await cart.addItem(cartItemData);
+    console.log('Item added to cart successfully');
+
+    // Refresh the cart from database to get the latest state
+    const updatedCart = await Cart.findById(cart._id).populate('items.product', 'name price images status stock');
+    
+    if (!updatedCart) {
+      console.error('Failed to retrieve updated cart');
+      return next(new AppError('Failed to update cart', 500));
+    }
+
+    console.log('Cart after adding item:', {
+      itemCount: updatedCart.items.length,
+      items: updatedCart.items.map(i => ({
+        product: i.product,
+        quantity: i.quantity,
+        price: i.price
+      }))
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Item added to cart successfully',
+      data: {
+        cart: updatedCart
       }
     });
+  } catch (error) {
+    console.error('Unexpected error in addToCart:', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body,
+      user: req.user?._id
+    });
+    next(new AppError('An unexpected error occurred while adding item to cart', 500));
   }
-
-  // Prepare cart item data
-  const cartItemData = {
-    product: productId,
-    name: product.name,
-    sku: product.sku,
-    price: product.price,
-    quantity: quantity,
-    variant: variant || null,
-    image: {
-      url: product.images[0]?.url || '',
-      alt: product.images[0]?.alt || product.name
-    },
-    availability: {
-      inStock: product.stock > 0,
-      quantity: product.stock
-    }
-  };
-
-  // Add item to cart using the model's method
-  await cart.addItem(cartItemData);
-
-  // Populate product details for response
-  await cart.populate('items.product', 'name price images status stock');
-
-  res.status(201).json({
-    status: 'success',
-    message: 'Item added to cart successfully',
-    data: {
-      cart
-    }
-  });
 });
 
 /**
