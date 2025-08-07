@@ -140,50 +140,159 @@ const uploadProductImage = catchAsync(async (req, res, next) => {
 });
 
 const createProduct = catchAsync(async (req, res, next) => {
+  console.log('📦 Creating product...');
+  console.log('📝 Request body:', req.body);
+  console.log('📸 Files received:', req.files ? req.files.length : 0);
+  console.log('📋 Content-Type:', req.get('content-type'));
+  
+  // ✅ CRITICAL: When using FormData, multer puts form fields in req.body
+  // and files in req.files. All the data should be in req.body already.
+  let productData = { ...req.body };
+  
+  // ✅ Parse JSON strings that were serialized for FormData
+  if (typeof productData.tags === 'string') {
+    try {
+      productData.tags = JSON.parse(productData.tags);
+    } catch (e) {
+      console.log('Tags parsing failed, using as-is:', productData.tags);
+      productData.tags = productData.tags ? [productData.tags] : [];
+    }
+  }
+  
+  if (typeof productData.seo === 'string') {
+    try {
+      productData.seo = JSON.parse(productData.seo);
+    } catch (e) {
+      console.log('SEO parsing failed, using defaults');
+      productData.seo = { title: '', description: '' };
+    }
+  }
+
+  // ✅ Convert string numbers to actual numbers
+  ['price', 'comparePrice', 'costPrice', 'stock', 'lowStockAlert', 'weight'].forEach(field => {
+    if (productData[field] && typeof productData[field] === 'string') {
+      productData[field] = Number(productData[field]) || 0;
+    }
+  });
+
+  console.log('📊 Processed product data:', {
+    name: productData.name,
+    description: productData.description?.substring(0, 50) + '...',
+    price: productData.price,
+    category: productData.category,
+    hasFiles: req.files ? req.files.length : 0
+  });
+
   // ✅ Validate required fields
-  if (!req.body.name || !req.body.description || !req.body.price || !req.body.category) {
+  if (!productData.name || !productData.description || !productData.price || !productData.category) {
+    console.error('❌ Missing required fields:', {
+      name: !!productData.name,
+      description: !!productData.description,
+      price: !!productData.price,
+      category: !!productData.category
+    });
     return next(new AppError('Missing required fields: name, description, price, and category are required', 400));
   }
 
   // ✅ Verify category exists
-  const category = await Category.findById(req.body.category);
+  const category = await Category.findById(productData.category);
   if (!category) {
     return next(new AppError('Category not found', 400));
   }
 
-  const productData = {
-    ...req.body,
-    createdBy: req.user?.id || null, // ✅ Handle case where user might not be set
-    status: req.body.status || 'active', // ✅ Default to 'active' for admin created products
-  };
-
-  // ✅ Generate SKU if not provided
-  if (!productData.sku) {
-    const count = await Product.countDocuments();
-    productData.sku = `SKU${Date.now()}${count + 1}`;
+  // ✅ Handle uploaded images
+  let imageUrls = [];
+  if (req.files && req.files.length > 0) {
+    imageUrls = req.files.map(file => `/uploads/products/${file.filename}`);
+    console.log('📸 Image URLs created:', imageUrls);
   }
 
-  console.log('📦 Creating product with data:', productData); // ✅ Debug log
+  // ✅ Prepare final product data
+  const finalProductData = {
+    name: productData.name,
+    description: productData.description,
+    price: productData.price,
+    category: productData.category,
+    sku: productData.sku || `SKU${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    comparePrice: productData.comparePrice || 0,
+    costPrice: productData.costPrice || 0,
+    stock: productData.stock || 0,
+    lowStockAlert: productData.lowStockAlert || 5,
+    weight: productData.weight || 0,
+    status: productData.status || 'active',
+    tags: productData.tags || [],
+    seo: productData.seo || { title: '', description: '' },
+    images: imageUrls, // Add processed image URLs
+    createdBy: req.user?.id || null,
+  };
 
-  const product = await Product.create(productData);
-  
-  // ✅ Populate the created product for proper response
-  await product.populate('category', 'name slug description');
+  console.log('📦 Creating product with final data:', JSON.stringify(finalProductData, null, 2));
 
-  console.log('✅ Product created successfully:', product.name, 'Status:', product.status); // ✅ Debug log
+  try {
+    const product = await Product.create(finalProductData);
+    
+    // ✅ Populate the created product
+    await product.populate('category', 'name slug description');
 
-  res.status(201).json({
-    status: 'success',
-    data: {
-      product,
-    },
-  });
+    console.log('✅ Product created successfully:', product._id, product.name);
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        product,
+      },
+    });
+  } catch (createError) {
+    console.error('❌ Error creating product:', createError);
+    return next(new AppError(`Failed to create product: ${createError.message}`, 500));
+  }
 });
 
 const updateProduct = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+  console.log(`🔄 Updating product ${id}...`);
+  console.log('📝 Request body:', req.body);
+  console.log('📸 Files received for update:', req.files ? req.files.length : 0);
   
-  const product = await Product.findByIdAndUpdate(id, req.body, {
+  // ✅ Handle JSON strings in FormData
+  let updateData = { ...req.body };
+  
+  // Parse JSON strings back to objects/arrays
+  if (typeof updateData.tags === 'string') {
+    try {
+      updateData.tags = JSON.parse(updateData.tags);
+    } catch (e) {
+      updateData.tags = [];
+    }
+  }
+  
+  if (typeof updateData.seo === 'string') {
+    try {
+      updateData.seo = JSON.parse(updateData.seo);
+    } catch (e) {
+      updateData.seo = { title: '', description: '' };
+    }
+  }
+  
+  // ✅ Handle image files if any
+  if (req.files && req.files.length > 0) {
+    const newImages = req.files.map(file => ({
+      url: `/uploads/${file.filename}`,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+      isPrimary: false // Default to false, can be updated later
+    }));
+    
+    // Get existing product to append new images
+    const existingProduct = await Product.findById(id);
+    updateData.images = [...(existingProduct?.images || []), ...newImages];
+    
+    console.log('📸 Added new images to product:', newImages.length);
+  }
+  
+  const product = await Product.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
   }).populate('category', 'name slug description');
@@ -191,6 +300,8 @@ const updateProduct = catchAsync(async (req, res, next) => {
   if (!product) {
     return next(new AppError('Product not found', 404));
   }
+
+  console.log(`✅ Product updated successfully: ${product.name}`);
 
   res.status(200).json({
     status: 'success',

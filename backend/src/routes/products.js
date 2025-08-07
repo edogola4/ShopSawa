@@ -85,176 +85,162 @@ const upload = multer({
   }
 });
 
-// ✅ FIXED: Single image upload endpoint (matches frontend expectation)
-router.post('/upload', protect, restrictTo('admin', 'super_admin'), (req, res) => {
-  console.log('🚀 Single image upload endpoint called');
-  console.log('📋 Request headers authorization:', req.headers.authorization ? 'present' : 'missing');
-  console.log('👤 User from auth middleware:', req.user ? req.user.id : 'no user');
-  
-  // ✅ Use single file upload (matches frontend formData.append('image', file))
-  upload.single('image')(req, res, (err) => {
-    if (err) {
-      console.error('❌ Multer middleware error:', err);
-      
-      if (err instanceof multer.MulterError) {
-        console.error('❌ Multer-specific error:', err.code, err.message);
-        
-        let errorMessage = 'File upload failed';
-        let statusCode = 400;
-        
-        switch (err.code) {
-          case 'LIMIT_FILE_SIZE':
-            errorMessage = 'File too large. Maximum size is 5MB.';
-            break;
-          case 'LIMIT_UNEXPECTED_FILE':
-            errorMessage = 'Expected field name "image".';
-            break;
-          default:
-            errorMessage = err.message;
-        }
-        
-        return res.status(statusCode).json({
-          status: 'error',
-          message: errorMessage,
-          error: err.code
-        });
-      }
-      
-      // Other errors (file type, etc.)
+// ✅ Single image upload endpoint
+router.post('/upload', 
+  protect, 
+  restrictTo('admin', 'super_admin'), 
+  upload.single('image'),
+  (req, res) => {
+    console.log('🚀 Single image upload endpoint called');
+    
+    // Check if file was uploaded
+    if (!req.file) {
       return res.status(400).json({
         status: 'error',
-        message: err.message || 'Upload failed',
-        error: err.toString()
+        message: 'Please upload an image file'
       });
     }
-
-    try {
-      console.log('📸 Processing single image upload...');
-      
-      if (!req.file) {
-        console.log('⚠️ No file in request');
-        return res.status(400).json({
-          status: 'error',
-          message: 'No image file provided'
-        });
-      }
-
-      console.log('📁 File received:', {
-        originalname: req.file.originalname,
+    
+    // Log successful upload
+    console.log('✅ File uploaded successfully:', req.file.filename);
+    
+    // Return success response with file details
+    const fileUrl = `/uploads/products/${req.file.filename}`;
+    res.status(200).json({
+      status: 'success',
+      data: {
         filename: req.file.filename,
+        path: fileUrl,
+        url: fileUrl,
+        originalName: req.file.originalname,
         size: req.file.size,
         mimetype: req.file.mimetype
-      });
-
-      // ✅ Format response to match frontend expectation
-      const fileUrl = `/uploads/${req.file.filename}`;
-      console.log(`✅ Image processed successfully: ${req.file.originalname} -> ${fileUrl}`);
-      
-      // ✅ Response format that matches frontend expectation
-      res.status(200).json({
-        status: 'success',
-        data: {
-          url: fileUrl,
-          filename: req.file.filename,
-          originalName: req.file.originalname,
-          size: req.file.size
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Upload processing error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Upload processing failed',
-        error: error.message
-      });
-    }
-  });
-});
-
-// ✅ ADDITIONAL: Multiple images upload endpoint (for future use)
-router.post('/upload-multiple', protect, restrictTo('admin', 'super_admin'), (req, res) => {
-  console.log('🚀 Multiple images upload endpoint called');
-  
-  upload.array('images', 5)(req, res, (err) => {
-    if (err) {
-      console.error('❌ Multer middleware error:', err);
-      
-      if (err instanceof multer.MulterError) {
-        let errorMessage = 'File upload failed';
-        let statusCode = 400;
-        
-        switch (err.code) {
-          case 'LIMIT_FILE_SIZE':
-            errorMessage = 'File too large. Maximum size is 5MB.';
-            break;
-          case 'LIMIT_FILE_COUNT':
-            errorMessage = 'Too many files. Maximum is 5 files.';
-            break;
-          case 'LIMIT_UNEXPECTED_FILE':
-            errorMessage = 'Unexpected field name. Use "images" as the field name.';
-            break;
-          default:
-            errorMessage = err.message;
-        }
-        
-        return res.status(statusCode).json({
-          status: 'error',
-          message: errorMessage,
-          error: err.code
-        });
       }
-      
+    });
+  });
+
+// ✅ Multiple images upload endpoint
+router.post('/upload-multiple', 
+  protect, 
+  restrictTo('admin', 'super_admin'), 
+  upload.array('images', 5),
+  (req, res) => {
+    console.log('🚀 Multiple images upload endpoint called');
+    
+    // Check if any files were uploaded
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         status: 'error',
-        message: err.message || 'Upload failed',
-        error: err.toString()
+        message: 'No files were uploaded'
       });
     }
+    
+    console.log(`✅ Successfully uploaded ${req.files.length} files`);
+    
+    // Map uploaded files to response format
+    const uploadedFiles = req.files.map(file => ({
+      filename: file.filename,
+      path: `/uploads/products/${file.filename}`,
+      url: `/uploads/products/${file.filename}`,
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype
+    }));
+    
+    res.status(200).json({
+      status: 'success',
+      count: uploadedFiles.length,
+      data: uploadedFiles
+    });
+  }
+);
 
-    try {
-      console.log('📸 Processing multiple images upload...');
-      
-      if (!req.files || req.files.length === 0) {
-        console.log('⚠️ No files in request');
-        return res.status(400).json({
-          status: 'error',
-          message: 'No files uploaded'
-        });
-      }
+// ====================================
+// Test Endpoints for Debugging
+// ====================================
 
-      const uploadedFiles = req.files.map(file => {
-        const fileUrl = `/uploads/${file.filename}`;
-        console.log(`✅ File processed: ${file.originalname} -> ${fileUrl}`);
-        
-        return {
-          originalName: file.originalname,
-          filename: file.filename,
-          url: fileUrl,
-          size: file.size,
-          mimetype: file.mimetype
-        };
+// Test endpoint to verify multer is working
+router.post('/test-upload', 
+  protect, 
+  restrictTo('admin', 'super_admin'),
+  upload.array('images', 5),
+  (req, res) => {
+    console.log('🧪 TEST UPLOAD - Body:', req.body);
+    console.log('🧪 TEST UPLOAD - Files:', req.files);
+    
+    res.json({
+      message: 'Test upload successful',
+      body: req.body,
+      files: req.files ? req.files.map(f => ({
+        originalname: f.originalname,
+        filename: f.filename,
+        size: f.size,
+        mimetype: f.mimetype
+      })) : []
+    });
+  }
+);
+
+// ====================================
+// Product CRUD Routes
+// ====================================
+
+// Debug middleware for product creation
+const debugCreateProduct = [
+  // Debug before multer
+  (req, res, next) => {
+    console.log('\n🔍 DEBUG - Before multer:');
+    console.log('Content-Type:', req.get('content-type'));
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.originalUrl);
+    console.log('Body before multer:', JSON.stringify(req.body, null, 2));
+    next();
+  },
+  
+  // Multer middleware
+  upload.array('images', 5),
+  
+  // Debug after multer
+  (req, res, next) => {
+    console.log('\n🔍 DEBUG - After multer:');
+    console.log('Body after multer:', JSON.stringify(req.body, null, 2));
+    console.log('Files after multer:', req.files ? req.files.length : 0);
+    
+    if (req.files && req.files.length > 0) {
+      console.log('\n📦 Uploaded files:');
+      req.files.forEach((file, index) => {
+        console.log(`File ${index + 1}:`);
+        console.log('  Fieldname:', file.fieldname);
+        console.log('  Originalname:', file.originalname);
+        console.log('  Filename:', file.filename);
+        console.log('  Size:', file.size, 'bytes');
+        console.log('  MIME type:', file.mimetype);
       });
-
-      console.log('🎉 Multiple upload successful! Files:', uploadedFiles.length);
-      res.status(200).json({
-        status: 'success',
-        message: 'Files uploaded successfully',
-        data: {
-          files: uploadedFiles
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Upload processing error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Upload processing failed',
-        error: error.message
-      });
+    } else {
+      console.log('No files were uploaded');
     }
-  });
-});
+    
+    next();
+  },
+  
+  // Finally, the actual createProduct controller
+  createProduct
+];
+
+// Apply routes with debugging
+router.route('/')
+  .get(protect, restrictTo('admin', 'super_admin'), getAllProducts)
+  .post(protect, restrictTo('admin', 'super_admin'), ...debugCreateProduct);
+
+router.route('/:id')
+  .get(protect, restrictTo('admin', 'super_admin'), getProduct)
+  .patch(
+    protect, 
+    restrictTo('admin', 'super_admin'),
+    upload.array('images', 5), // Handle up to 5 files for updates
+    updateProduct
+  )
+  .delete(protect, restrictTo('admin', 'super_admin'), deleteProduct);
 
 // ✅ DELETE uploaded file endpoint
 router.delete('/upload/:filename', protect, restrictTo('admin', 'super_admin'), (req, res) => {
