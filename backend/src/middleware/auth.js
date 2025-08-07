@@ -73,6 +73,18 @@ const protect = catchAsync(async (req, res, next) => {
     return next(new AppError('Your account has been deactivated.', 401));
   }
 
+  // Add detailed auth logging
+  console.log('🔐 Auth Debug:', {
+    tokenFound: !!token,
+    decodedUserId: decoded?.id,
+    userFound: !!currentUser,
+    finalUserId: currentUser?._id,
+    endpoint: req.originalUrl,
+    method: req.method,
+    userRole: currentUser?.role,
+    isActive: currentUser?.isActive
+  });
+
   // Grant access to protected route
   req.user = currentUser;
   next();

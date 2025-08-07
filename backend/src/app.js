@@ -25,14 +25,14 @@ app.use('/admin', (req, res, next) => {
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-    "script-src-attr 'unsafe-inline'; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: https:; " +
     "connect-src 'self'; " +
     "font-src 'self' data:; " +
     "object-src 'none'; " +
     "media-src 'self'; " +
-    "frame-src 'none'"
+    "frame-src 'none'; " +
+    "script-src-attr 'unsafe-inline'"
   );
   next();
 });
@@ -58,16 +58,24 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
+// Rate limiting - increased limits for development
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  windowMs: 60 * 1000, // 1 minute window
+  max: 1000, // 1000 requests per minute during development
   message: {
     error: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting for development environment
+    return process.env.NODE_ENV === 'development' && 
+           !req.path.startsWith('/api/auth/'); // Still protect auth endpoints
   }
 });
 
-app.use('/api/', limiter);
+// Apply rate limiting to all API routes
+app.use('/api', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
