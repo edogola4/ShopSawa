@@ -34,12 +34,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useDebouncedSearch } from '../../hooks/useDebounce';
 import productService from '../../services/product.service';
 
 import Button from '../common/Button';
 import EnhancedSearchBar from '../common/EnhancedSearchBar';
 import { NotificationBadge } from '../common/Notification';
+import NotificationDrawer from '../notifications/NotificationDrawer';
 import { getInitials } from '../../utils/helpers';
 import { ROUTES } from '../../utils/constants';
 
@@ -187,7 +189,7 @@ const Header = () => {
   
   const { 
     cartItemCount, 
-    openDrawer: openCartDrawer 
+    openDrawer 
   } = useCart();
   
   const {
@@ -345,24 +347,13 @@ const Header = () => {
             </Button>
 
             {/* Notifications (when authenticated) */}
-            {isAuthenticated && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 relative"
-                aria-label="Notifications"
-                tooltip="Notifications"
-              >
-                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                <NotificationBadge count={3} size="xs" />
-              </Button>
-            )}
+            {isAuthenticated && <NotificationDrawer />}
 
             {/* Cart */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={openCartDrawer}
+              onClick={openDrawer}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 relative"
               aria-label={`Shopping cart (${cartItemCount} items)`}
               tooltip={`Cart (${cartItemCount})`}

@@ -12,6 +12,7 @@ import { Outlet } from 'react-router-dom'; // ✅ ADDED: Import Outlet
 import Header from './Header';
 import Footer from './Footer';
 import { NotificationContainer } from '../common/Notification';
+import CartDrawer from '../cart/CartDrawer';
 import { LoadingOverlay } from '../common/LoadingSpinner';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
@@ -83,14 +84,12 @@ const Layout = ({ className = '', showFooter = true }) => {
       <Header />
 
       {/* Main Content */}
-      <main 
-        className={`flex-1 ${className}`}
-        role="main"
-        id="main-content"
-      >
-        {/* ✅ FIXED: Use Outlet instead of children for nested routes */}
+      <main className={`flex-grow ${className}`}>
         <Outlet />
       </main>
+      
+      {/* Cart Drawer */}
+      <CartDrawer />
 
       {/* Footer */}
       {showFooter && <Footer />}

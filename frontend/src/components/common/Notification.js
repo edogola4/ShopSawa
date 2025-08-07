@@ -466,10 +466,13 @@ export const NotificationBadge = ({
   children,
   ...props
 }) => {
-  const displayCount = count > max ? `${max}+` : count.toString();
-  const shouldShow = count > 0 || showZero;
+  // If count is not a number, default to 0
+  const safeCount = typeof count === 'number' ? count : 0;
+  const displayCount = safeCount > max ? `${max}+` : safeCount.toString();
+  const shouldShow = safeCount > 0 || showZero;
 
   const sizes = {
+    xs: 'min-w-[14px] h-3.5 text-[10px] px-0.5',
     sm: 'min-w-[16px] h-4 text-xs px-1',
     md: 'min-w-[20px] h-5 text-xs px-1.5',
     lg: 'min-w-[24px] h-6 text-sm px-2'
@@ -480,15 +483,42 @@ export const NotificationBadge = ({
     blue: 'bg-blue-500 text-white',
     green: 'bg-green-500 text-white',
     yellow: 'bg-yellow-500 text-white',
-    gray: 'bg-gray-500 text-white'
+    gray: 'bg-gray-500 text-white',
+    primary: 'bg-blue-600 text-white',
+    secondary: 'bg-gray-600 text-white',
+    success: 'bg-green-600 text-white',
+    danger: 'bg-red-600 text-white',
+    warning: 'bg-yellow-500 text-white',
+    info: 'bg-blue-400 text-white'
   };
 
   const positions = {
     'top-right': '-top-1 -right-1',
     'top-left': '-top-1 -left-1',
     'bottom-right': '-bottom-1 -right-1',
-    'bottom-left': '-bottom-1 -left-1'
+    'bottom-left': '-bottom-1 -left-1',
+    'center': 'top-1/2 -right-1 -translate-y-1/2'
   };
+
+  // If no children, just render the badge in a span
+  if (!children) {
+    if (!shouldShow) return null;
+    
+    return (
+      <span
+        className={`
+          inline-flex items-center justify-center
+          rounded-full font-medium
+          ${sizes[size]}
+          ${colors[color]}
+          ${className}
+        `}
+        {...props}
+      >
+        {displayCount}
+      </span>
+    );
+  }
 
   return (
     <div className="relative inline-flex" {...props}>
@@ -502,7 +532,10 @@ export const NotificationBadge = ({
             ${colors[color]}
             ${positions[position]}
             ${className}
+            transition-all duration-200
+            transform scale-100 group-hover:scale-110
           `}
+          aria-label={`${displayCount} notifications`}
         >
           {displayCount}
         </span>
