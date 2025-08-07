@@ -22,7 +22,7 @@ import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ProductCard from '../components/product/ProductCard';
 import { productService } from '../services/product.service';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/SimpleCartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { formatCurrency, formatDate } from '../utils/helpers';

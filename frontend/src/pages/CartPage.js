@@ -6,7 +6,7 @@ import { ShoppingBag, ArrowLeft, Trash2, Loader2, Shield, Lock, CheckCircle2, Tr
 import Button from '../components/common/Button';
 import CartItem from '../components/cart/CartItem';
 import CartSummary from '../components/cart/CartSummary';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/SimpleCartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { ROUTES } from '../utils/constants';

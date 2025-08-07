@@ -299,29 +299,72 @@ export const AuthProvider = ({ children }) => {
         password: password.trim() 
       };
 
-      // ✅ Debug logging (development only)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🚀 AuthContext - Login attempt:', {
-          email: credentials.email,
-          rememberMe
-        });
-      }
+      console.log('🔑 AuthContext - Starting login process...');
+      console.log('🔑 Login credentials prepared:', {
+        email: credentials.email,
+        passwordLength: credentials.password.length,
+        rememberMe
+      });
 
       const response = await authService.login(credentials);
+      console.log('🔑 Login response received:', {
+        success: response?.success,
+        hasUserData: !!(response?.user || response?.data?.user),
+        hasToken: !!(response?.token || response?.data?.token)
+      });
       
-      // ✅ Enhanced response validation
-      if (response && response.success && response.user) {
+      // ✅ Enhanced response validation with role checking
+      if (response && response.success) {
+        // Get the user data from the response
+        const userData = response.user || response.data?.user;
+        
+        if (!userData) {
+          console.error('❌ No user data in login response:', response);
+          throw new Error('No user data received from server');
+        }
+        
+        // Log detailed user data for debugging
+        console.log('🔑 User data from login response:', {
+          id: userData._id,
+          email: userData.email,
+          role: userData.role,
+          isActive: userData.isActive,
+          isVerified: userData.isVerified,
+          hasToken: !!(response.token || response.data?.token)
+        });
+        
+        // Check if user has admin or super_admin role
+        const hasAdminRole = ['admin', 'super_admin'].includes(userData.role);
+        console.log(`🔑 Role check - Has admin role: ${hasAdminRole} (${userData.role})`);
+        
+        if (!hasAdminRole) {
+          console.error('❌ User does not have admin role. Details:', {
+            userId: userData._id,
+            email: userData.email,
+            actualRole: userData.role,
+            isActive: userData.isActive,
+            isVerified: userData.isVerified
+          });
+          
+          // Logout the user since they don't have admin access
+          console.log('🔑 Logging out user due to insufficient privileges...');
+          await authService.logout();
+          
+          throw new Error('You do not have admin privileges');
+        }
+        
+        // Dispatch login success with user data
         dispatch({
           type: ActionTypes.LOGIN_SUCCESS,
-          payload: { user: response.user }
+          payload: { user: userData }
         });
 
         // Dispatch global login event
         window.dispatchEvent(new CustomEvent('auth:loginSuccess', {
-          detail: { user: response.user }
+          detail: { user: userData }
         }));
 
-        return { success: true, user: response.user };
+        return { success: true, user: userData };
       } else {
         // ✅ Handle unexpected response format
         console.error('❌ Invalid login response:', response);

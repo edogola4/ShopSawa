@@ -19,7 +19,7 @@ import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import CartItem from '../components/cart/CartItem';
 import CartSummary from '../components/cart/CartSummary';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/SimpleCartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { orderService } from '../services/order.service';

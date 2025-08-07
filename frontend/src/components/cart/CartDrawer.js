@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, ShoppingBag, ArrowRight, Trash2, Plus, Minus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../../context/SimpleCartContext';
 import { useNavigate } from 'react-router-dom';
 import Button from '../common/Button';
 

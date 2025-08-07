@@ -6,6 +6,45 @@ const catchAsync = require('../../utils/catchAsync');
 const AppError = require('../../utils/appError');
 const { createSendToken } = require('../../middleware/auth');
 
+const registerAdmin = catchAsync(async (req, res, next) => {
+  const { firstName, lastName, email, phone, password, passwordConfirm } = req.body;
+
+  // 1) Check if all required fields are provided
+  if (!firstName || !lastName || !email || !phone || !password || !passwordConfirm) {
+    return next(new AppError('All fields are required', 400));
+  }
+
+  // 2) Check if passwords match
+  if (password !== passwordConfirm) {
+    return next(new AppError('Passwords do not match', 400));
+  }
+
+  // 3) Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return next(new AppError('Email already in use', 400));
+  }
+
+  // 4) Create new admin user with all required fields
+  const newAdmin = await User.create({
+    firstName,
+    lastName,
+    email,
+    phone,
+    password,
+    role: 'admin',
+    isActive: true,
+    isVerified: true, // Skip email verification for admin registration
+    addresses: [] // Initialize with empty addresses array
+  });
+
+  // 4) Remove password from output
+  newAdmin.password = undefined;
+
+  // 5) Send response with token
+  createSendToken(newAdmin, 201, res);
+});
+
 const signup = catchAsync(async (req, res, next) => {
   const { firstName, lastName, email, phone, password, passwordConfirm, role } = req.body;
 
@@ -166,5 +205,6 @@ module.exports = {
   getMe,
   updatePassword,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  registerAdmin
 };

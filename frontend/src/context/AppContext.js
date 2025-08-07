@@ -8,7 +8,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { AuthProvider } from './AuthContext';
-import { CartProvider } from './CartContext';
+import { SimpleCartProvider } from './SimpleCartContext';
 import { ROUTES, FEATURES, STORAGE_KEYS, UI_CONFIG } from '../utils/constants';
 import { secureStorage, debounce } from '../utils/helpers';
 import productService from '../services/product.service';
@@ -696,9 +696,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={contextValue}>
       <AuthProvider>
-        <CartProvider>
-          {children}
-        </CartProvider>
+        {children}
       </AuthProvider>
     </AppContext.Provider>
   );

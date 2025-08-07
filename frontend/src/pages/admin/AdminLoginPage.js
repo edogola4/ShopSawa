@@ -26,27 +26,50 @@ const AdminLoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required');
+      return;
+    }
+    
     setLoading(true);
 
     try {
-      // Call the login function from AuthContext
-      await login({
-        email: formData.email,
-        password: formData.password
-      });
+      console.log('Attempting login with:', { email: formData.email });
+      
+      // Call the login function from AuthContext with separate arguments
+      const loginResult = await login(
+        formData.email.trim(),
+        formData.password,
+        false // remember me
+      );
 
-      // After successful login, verify admin role
-      const userResponse = await api.get('/auth/me');
-      const user = userResponse.data?.data?.user;
+      console.log('Login result:', loginResult);
+      
+      // Get the current user data from the login result or fetch it
+      let user = loginResult?.user;
+      
+      if (!user) {
+        console.log('No user in login result, fetching user data...');
+        const userResponse = await api.get('/auth/me');
+        user = userResponse.data?.data?.user || userResponse.data?.user;
+        console.log('Fetched user data:', user);
+      }
       
       if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-        // Redirect to admin dashboard
+        console.log('User has admin role, redirecting to admin dashboard');
+        // Redirect to admin root which will show the dashboard by default
         navigate('/admin');
         toast.success('Successfully logged in as admin');
       } else {
+        console.warn('User does not have admin role, logging out', { 
+          role: user?.role,
+          hasUser: !!user 
+        });
         // Log out if not an admin
         await api.post('/auth/logout');
-        setError('You do not have admin privileges');
+        setError('You do not have admin privileges. Please register as an admin first.');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -97,9 +120,9 @@ const AdminLoginPage = () => {
           <input type="hidden" name="remember" value="true" />
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">Email address</label>
+              <label htmlFor="email" className="sr-only">Email address</label>
               <input
-                id="email-address"
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"

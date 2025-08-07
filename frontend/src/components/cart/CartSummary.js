@@ -5,7 +5,7 @@ import { Tag, Shield, Loader2, ArrowRight, Truck } from 'lucide-react';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import { formatCurrency } from '../../utils/helpers';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../../context/SimpleCartContext';
 import { useNotification } from '../../hooks/useNotification';
 import { SHIPPING_RATES } from '../../utils/constants';
 

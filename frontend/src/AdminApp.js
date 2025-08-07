@@ -13,14 +13,24 @@ const AdminApp = () => (
       <NotificationProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/admin/*"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
+          <Route path="/admin">
+            <Route
+              index
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+          </Route>
           {/* default redirect */}
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>

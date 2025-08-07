@@ -3,7 +3,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
+import { SimpleCartProvider } from './context/SimpleCartContext';
 import { AppProvider } from './context/AppContext';
 import { NotificationProvider } from './context/NotificationContext';
 import Layout from './components/layout/Layout';
@@ -48,7 +48,7 @@ function App() {
       }}
     >
       <AuthProvider>
-        <CartProvider>
+        <SimpleCartProvider>
           <AppProvider>
             <NotificationProvider>
               <div className="App">
@@ -109,21 +109,10 @@ function App() {
                   <Route path="consumer-rights" element={<Navigate to="/terms" replace />} />
                   <Route path="refund-policy" element={<Navigate to="/terms#refunds" replace />} />
                   
-                  {/* Admin Routes */}
-                  <Route path="admin" element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  } />
-                  
-                  {/* Catch-all route for admin sub-routes */}
+                  {/* Admin Routes - All admin routes are nested under /admin */}
                   <Route path="admin/*" element={
                     <AdminRoute>
-                      <Routes>
-                        <Route index element={<Navigate to="/admin" replace />} />
-                        <Route path="dashboard" element={<AdminDashboard />} />
-                        {/* Add more admin sub-routes here as needed */}
-                      </Routes>
+                      <AdminDashboard />
                     </AdminRoute>
                   } />
                   <Route path="cookies" element={<Navigate to="/privacy#cookies" replace />} />
@@ -143,7 +132,7 @@ function App() {
               </div>
             </NotificationProvider>
           </AppProvider>
-        </CartProvider>
+        </SimpleCartProvider>
       </AuthProvider>
     </Router>
   );

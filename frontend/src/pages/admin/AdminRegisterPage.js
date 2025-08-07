@@ -7,8 +7,10 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const AdminRegisterPage = () => {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -41,30 +43,135 @@ const AdminRegisterPage = () => {
     }
 
     setLoading(true);
+    setError('');
+
+    // Basic validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Register the admin user
-      const response = await api.post('/auth/admin/register', {
-        name: formData.name,
-        email: formData.email.toLowerCase(),
+      // Prepare the request data with explicit admin role and required fields
+      const requestData = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.toLowerCase().trim(),
+        phone: formData.phone.trim(),
         password: formData.password,
-        role: 'admin' // Ensure the role is set to admin
+        confirmPassword: formData.confirmPassword,
+        role: 'admin', // Explicitly set role to admin
+        isActive: true,
+        isVerified: true
+      };
+
+      // Log the request data for debugging
+      console.log('Registration request data:', {
+        ...requestData,
+        password: '***', // Don't log actual password
+        confirmPassword: '***',
+        passwordConfirm: '***'
       });
 
-      if (response.data.success) {
-        // Auto-login after successful registration
-        await login({
-          email: formData.email,
-          password: formData.password
-        });
+      // Register the admin user with explicit role
+      const response = await api.post('/auth/admin/register', {
+        ...requestData,
+        // Ensure role is explicitly set to admin
+        role: 'admin',
+        // Add any additional required fields
+        isActive: true,
+        isVerified: true
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Registration response:', response.data);
 
-        // Redirect to admin dashboard
-        navigate('/admin');
-        toast.success('Admin account created successfully!');
+      // Check for successful registration (handle different response structures)
+      const responseData = response?.data || {};
+      const userData = responseData.data?.user || responseData.user || responseData;
+      const token = responseData.token || responseData.data?.token;
+
+      if (!userData) {
+        throw new Error('No user data received from registration');
+      }
+      
+      // Store the token if we have one
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+      
+      // Log in with the new credentials
+      
+      try {
+        // Use the AuthContext login function to handle the login flow
+        const loginResult = await login(
+          formData.email.trim(),
+          formData.password,
+          true // remember me
+        );
+        
+        if (loginResult && loginResult.success) {
+          console.log('Login after registration successful');
+          // The login function will handle the redirection
+          return;
+        } else {
+          throw new Error('Login after registration failed');
+        }
+      } catch (loginError) {
+        console.error('Error during login after registration:', loginError);
+        
+        // If login fails, try to get user info directly
+        try {
+          const userResponse = await api.get('/auth/me');
+          console.log('User info after registration:', userResponse.data);
+          
+          const user = userResponse.data?.data?.user || userResponse.data?.user;
+          
+          if (user && (user.role === 'admin' || user.role === 'super_admin')) {
+            // Success! Redirect to admin dashboard
+            navigate('/admin/dashboard');
+            toast.success('Admin account created and logged in successfully!');
+            return;
+          } else {
+            console.error('User does not have admin role. Actual role:', user?.role);
+            await api.post('/auth/logout');
+            throw new Error('You do not have admin privileges');
+          }
+        } catch (meError) {
+          console.error('Error getting user info after login:', meError);
+          throw new Error('Account created but we encountered an issue. Please try logging in manually.');
+        }
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err.response?.data?.message || 'Failed to create admin account. Please try again.');
+      
+      // More detailed error handling
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Response data:', err.response.data);
+        console.error('Response status:', err.response.status);
+        console.error('Response headers:', err.response.headers);
+        
+        if (err.response.data && err.response.data.error) {
+          // Handle validation errors or other error messages from the server
+          setError(err.response.data.error.message || 'Failed to create admin account. Please check your information and try again.');
+        } else {
+          setError(err.response.data?.message || 'An error occurred during registration.');
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+        setError('No response from server. Please check your connection and try again.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error:', err.message);
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -103,18 +210,56 @@ const AdminRegisterPage = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="name" className="sr-only">Full Name</label>
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                First Name
+              </label>
               <input
-                id="name"
-                name="name"
+                id="firstName"
+                name="firstName"
                 type="text"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Full Name"
-                value={formData.name}
+                value={formData.firstName}
                 onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="Bran"
               />
             </div>
+
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                Last Name
+              </label>
+              <input
+                id="lastName"
+                name="lastName"
+                type="text"
+                required
+                value={formData.lastName}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="Don"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                Phone Number
+              </label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                value={formData.phone}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="2547XXXXXXXX"
+                pattern="254[0-9]{9}"
+                title="Please enter a valid Kenyan phone number starting with 254"
+              />
+              <p className="mt-1 text-xs text-gray-500">Format: 2547XXXXXXXX (Kenyan number)</p>
+            </div>
+
             <div>
               <label htmlFor="email-address" className="sr-only">Email address</label>
               <input

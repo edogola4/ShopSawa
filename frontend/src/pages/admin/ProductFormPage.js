@@ -3,12 +3,54 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { InformationCircleIcon } from '@heroicons/react/20/solid';
+import { toast } from 'react-toastify';
+import { secureStorage } from '../../utils/helpers';
+import { STORAGE_KEYS } from '../../utils/constants';
 
-const ProductFormPage = () => {
+// Error boundary component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error in ProductFormPage:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 text-red-700 rounded-lg">
+          <h2 className="font-bold">Something went wrong</h2>
+          <p>{this.state.error?.message || 'Unknown error occurred'}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const ProductFormPageContent = () => {
+  console.log('ProductFormPage rendered');
+  
   const { id } = useParams();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  
+  console.log('ProductFormPage props:', { id, isEditMode, user });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -184,57 +226,95 @@ const ProductFormPage = () => {
     
     try {
       setLoading(true);
-      console.log('Creating category with name:', categoryName);
+      console.log('1. Creating category with name:', categoryName);
       
-      if (!user?.token) {
-        throw new Error('You need to be logged in to create a category');
-      }
-      
-      // Create the category data object
+      // Create a simple category data object with required fields
       const categoryData = {
-        name: categoryName,
-        status: 'active',
-        isActive: true,
-        description: '',
-        slug: categoryName.toLowerCase().replace(/\s+/g, '-'),
-        sortOrder: 0,
-        metaTitle: categoryName,
-        metaDescription: `${categoryName} category`,
+        name: categoryName.trim(),
+        slug: categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        isActive: true
       };
       
-      console.log('Sending category data:', categoryData);
+      console.log('2. Sending category data:', JSON.stringify(categoryData, null, 2));
       
-      // Use the api service which handles auth headers automatically
-      const response = await api.post('/admin/categories', categoryData);
+      // Make the API request with the category data directly (not wrapped in a data object)
+      console.log('3. Making API request to create category...');
+      const response = await api.post('/admin/categories', categoryData, {
+        includeAuth: true,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      console.log('Category creation response:', response);
+      console.log('4. API Response:', response);
       
-      if (response.status >= 400) {
-        throw new Error(response.data?.message || 'Failed to create category');
+      // The API service already parses the response, so we can use it directly
+      const responseData = response;
+      
+      console.log('5. Raw response data:', JSON.stringify(responseData, null, 2));
+      
+      // Handle different response formats
+      let newCategory;
+      
+      // Case 1: Response has a category object in data.category
+      if (responseData.data?.category) {
+        newCategory = responseData.data.category;
+      } 
+      // Case 2: Response has an array of categories in data (which might contain category objects)
+      else if (Array.isArray(responseData.data)) {
+        // Find the newly created category by name in the nested category objects
+        const categoryItem = responseData.data.find(item => 
+          item.category?.name?.trim().toLowerCase() === categoryName.trim().toLowerCase()
+        );
+        
+        if (categoryItem?.category) {
+          newCategory = categoryItem.category;
+        } else if (responseData.data.length > 0 && responseData.data[0].category) {
+          // If we can't find by name, take the first category object
+          newCategory = responseData.data[0].category;
+        } else if (responseData.data.length > 0) {
+          // Fallback to the first item if it's not nested in a category object
+          newCategory = responseData.data[0];
+        }
+      }
+      // Case 3: Response has the category at the top level
+      else if (responseData._id || responseData.id) {
+        newCategory = responseData;
       }
       
-      // The backend returns the category in response.data.category
-      if (response.data?.category) {
-        const newCategory = response.data.category;
-        console.log('New category created:', newCategory);
+      if (newCategory) {
+        console.log('6. New category created successfully:', newCategory);
         
-        // Update the categories list with the new category
-        setCategories(prev => [...prev, newCategory]);
+        // Update the categories list with the new category if it's not already there
+        setCategories(prev => {
+          const exists = prev.some(cat => 
+            (cat._id || cat.id) === (newCategory._id || newCategory.id)
+          );
+          return exists ? prev : [...prev, newCategory];
+        });
         
         // Update the form to select the new category
         setFormData(prev => ({
           ...prev,
-          category: newCategory._id
+          category: newCategory._id || newCategory.id
         }));
         
         // Reset the new category input
         setShowNewCategoryInput(false);
         setNewCategoryName('');
         setError(''); // Clear any previous errors
-      } else {
-        console.error('Unexpected response format:', response);
-        throw new Error('Invalid response format from server');
+        
+        // Show success message
+        toast.success('Category created successfully');
+        return; // Exit the function after successful creation
       }
+      
+      // If we get here, we couldn't find the new category in the response
+      console.error('7. Could not determine the new category from response:', responseData);
+      throw new Error('Category created but could not be processed');
+      
+      // This code block is no longer needed as we're handling the response above
+      // The logic has been moved into the response handling blocks
     } catch (err) {
       console.error('Error creating category:', err);
       
@@ -242,11 +322,13 @@ const ProductFormPage = () => {
       console.error('Error details:', {
         message: err.message,
         name: err.name,
-        stack: err.stack
+        stack: err.stack,
+        response: err.response?.data
       });
       
       // Set a user-friendly error message
-      setError(err.message || 'Failed to create new category. Please try again.');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to create new category. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -290,63 +372,124 @@ const ProductFormPage = () => {
     setError('');
 
     try {
+      // Debug: Check token in localStorage
+      const tokenFromStorage = localStorage.getItem('shopsawa_auth_token');
+      console.log('🔑 Token from localStorage:', tokenFromStorage ? 'Token exists' : 'No token found');
+      
+      // Check if API service has token
+      const apiToken = api.getAuthToken();
+      console.log('🔑 Token from API service:', apiToken ? 'Token exists' : 'No token found');
+      
+      if (!apiToken) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      console.log('Form data before submission:', formData);
+      
+      // Create a plain JavaScript object with all the form data
       const productData = {
-        ...formData,
-        price: Number(formData.price),
-        compareAtPrice: formData.compareAtPrice ? Number(formData.compareAtPrice) : null,
-        costPrice: formData.costPrice ? Number(formData.costPrice) : null,
-        stock: Number(formData.stock),
-        lowStockAlert: formData.lowStockAlert ? Number(formData.lowStockAlert) : null,
-        weight: formData.weight ? Number(formData.weight) : null,
-        tags: tags,
-        status: formData.status || 'draft',
+        name: formData.name,
+        description: formData.description || 'No description provided',
+        price: Number(formData.price) || 0,
+        category: formData.category,
+        sku: formData.sku || '',
+        comparePrice: formData.comparePrice ? Number(formData.comparePrice) : 0,
+        costPrice: formData.costPrice ? Number(formData.costPrice) : 0,
+        stock: formData.stock ? Number(formData.stock) : 0,
+        lowStockAlert: formData.lowStockAlert ? Number(formData.lowStockAlert) : 5,
+        weight: formData.weight ? Number(formData.weight) : 0,
+        status: formData.status || 'active',
+        tags: tags.length > 0 ? tags : [],
         seo: {
           title: formData.seoTitle || '',
           description: formData.seoDescription || ''
         }
       };
+      
+      // Log the data being sent
+      console.log('Product data being sent:', JSON.stringify(productData, null, 2));
 
-      // Handle image uploads if there are any
-      const formDataToSend = new FormData();
-      Object.entries(productData).forEach(([key, value]) => {
-        if (key === 'images') {
-          // Only append new files (not URLs)
-          formData.images
-            .filter(img => img instanceof File)
-            .forEach(file => {
-              formDataToSend.append('images', file);
-            });
-        } else if (key === 'seo') {
-          // Handle SEO as nested object
-          formDataToSend.append('seoTitle', value.title);
-          formDataToSend.append('seoDescription', value.description);
-        } else if (value !== null && value !== undefined) {
-          formDataToSend.append(key, value);
+      // Make the API request with detailed logging
+      const url = id ? `/admin/products/${id}` : '/admin/products';
+      const method = id ? 'PUT' : 'POST';
+      
+      console.log(`Sending ${method} request to:`, url);
+      
+      // Get the token from secureStorage
+      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
+      console.log('🔑 Token from secureStorage:', token ? 'Token exists' : 'No token found');
+      
+      if (!token) {
+        // Try to get token from localStorage as fallback
+        const tokenFromLocalStorage = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        console.log('🔑 Token from localStorage:', tokenFromLocalStorage || 'No token found');
+        
+        if (!tokenFromLocalStorage) {
+          throw new Error('Authentication required. Please log in again.');
+        }
+        
+        // Try to use the token from localStorage
+        api.setAuthToken(tokenFromLocalStorage);
+      }
+      
+      // Log the full request configuration
+      console.log('🔧 Request configuration:', {
+        method: id ? 'PUT' : 'POST',
+        url,
+        data: productData,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
         }
       });
-
-      if (id) {
-        // Update existing product
-        await api.put(`/admin/products/${id}`, formDataToSend, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-      } else {
-        // Create new product
-        await api.post('/admin/products', formDataToSend, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-      }
+      
+      // Make the request with explicit headers
+      const response = id 
+        ? await api.put(url, productData, {
+            headers: {
+              'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
+            }
+          })
+        : await api.post(url, productData, {
+            headers: {
+              'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
+            }
+          });
+      
+      console.log('✅ API Response:', response);
+      
+      // If we get here, the request was successful
+      return response;
       
       // Show success message and redirect
       alert(`Product ${id ? 'updated' : 'created'} successfully!`);
       navigate('/admin/products');
     } catch (err) {
       console.error('Error saving product:', err);
-      setError(err.response?.data?.message || 'Failed to save product. Please try again.');
+      
+      // Log detailed error information
+      if (err.response) {
+        console.error('Error response data:', err.response.data);
+        console.error('Error status:', err.response.status);
+        console.error('Error headers:', err.response.headers);
+        
+        // Check for validation errors
+        if (err.response.data.error?.details) {
+          console.error('Validation errors:', err.response.data.error.details);
+          setError('Validation error: ' + JSON.stringify(err.response.data.error.details));
+        } else if (err.response.data.error?.message) {
+          setError(err.response.data.error.message);
+        } else if (err.response.data.message) {
+          setError(err.response.data.message);
+        } else {
+          setError('Failed to save product. Please check the console for details.');
+        }
+      } else if (err.request) {
+        console.error('No response received:', err.request);
+        setError('No response from server. Please try again.');
+      } else {
+        console.error('Error message:', err.message);
+        setError('An error occurred: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -855,6 +998,42 @@ const ProductFormPage = () => {
       </form>
     </div>
   );
+};
+
+const ProductFormPage = () => {
+  console.log('Rendering ProductFormPage, path:', window.location.pathname);
+  
+  React.useEffect(() => {
+    console.log('ProductFormPage mounted');
+    return () => console.log('ProductFormPage unmounted');
+  }, []);
+
+  try {
+    return (
+      <ErrorBoundary>
+        <div className="p-6 max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6">
+            {window.location.pathname.includes('edit') ? 'Edit Product' : 'Add New Product'}
+          </h1>
+          <ProductFormPageContent />
+        </div>
+      </ErrorBoundary>
+    );
+  } catch (error) {
+    console.error('Error in ProductFormPage render:', error);
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6 text-red-600">Error Loading Product Form</h1>
+        <p className="text-red-500">An error occurred while loading the product form. Please try again.</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Reload Page
+        </button>
+      </div>
+    );
+  }
 };
 
 export default ProductFormPage;

@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useProduct } from '../hooks/useProduct';
 import { formatCurrency } from '../utils/helpers';
 import Button from '../components/common/Button';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/SimpleCartContext';
 import { useNotification } from '../hooks/useNotification';
 
 const ProductDetailPage = () => {

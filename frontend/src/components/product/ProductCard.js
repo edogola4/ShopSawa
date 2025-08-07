@@ -18,7 +18,7 @@ import {
   Shield
 } from 'lucide-react';
 
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../../context/SimpleCartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import Button from '../common/Button';

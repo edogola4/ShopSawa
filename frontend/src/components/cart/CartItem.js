@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Minus, Plus, Trash2, Heart } from 'lucide-react';
 import Button from '../common/Button';
 import { formatCurrency } from '../../utils/helpers';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../../context/SimpleCartContext';
 import { useNotification } from '../../hooks/useNotification';
 
 const CartItem = ({ item, showRemoveButton = true, isCheckout = false }) => {
