@@ -3,6 +3,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import AdminApp from './AdminApp';
 
 // Import global styles
 import './styles/globals.css';
@@ -117,7 +118,7 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      {process.env.REACT_APP_ADMIN_ONLY === 'true' ? <AdminApp /> : <App />}
     </ErrorBoundary>
   </React.StrictMode>
 );

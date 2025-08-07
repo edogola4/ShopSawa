@@ -4,9 +4,12 @@
   "description": "ShopSawa E-commerce Frontend - A modern React-based storefront",
   "private": true,
   "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@heroicons/react": "^2.2.0",
     "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
+    "antd": "^5.26.7",
     "axios": "^1.5.0",
     "date-fns": "^2.30.0",
     "js-cookie": "^3.0.5",
@@ -28,6 +31,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:admin": "PORT=3001 REACT_APP_ADMIN_ONLY=true react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --watchAll=false",
     "test:watch": "react-scripts test",
