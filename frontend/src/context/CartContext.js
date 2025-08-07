@@ -7,7 +7,7 @@
  * Manages global cart state for both authenticated and guest users
  */
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import cartService from '../services/cart.service';
 import { useAuth } from './AuthContext';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES, BUSINESS_RULES } from '../utils/constants';
@@ -570,6 +570,7 @@ const CartContext = createContext(null);
 export const CartProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, initialState);
   const { isAuthenticated, user } = useAuth();
+  const isInitialized = useRef(false);
 
   // ===========================================================================
   // INITIALIZATION
@@ -1063,8 +1064,21 @@ export const CartProvider = ({ children }) => {
 
   // Initialize cart on mount
   useEffect(() => {
-    initializeCart();
+    if (!isInitialized.current) {
+      console.log('[CartContext] Initializing cart...');
+      isInitialized.current = true;
+      initializeCart();
+    }
   }, [initializeCart]);
+  
+  // Debug effect to track cart loading
+  useEffect(() => {
+    console.log('[CartContext] Cart state updated:', {
+      isLoading: state.isLoading,
+      itemCount: state.summary.itemCount,
+      itemsLength: state.items.length
+    });
+  }, [state.isLoading, state.summary.itemCount, state.items.length]);
 
   // Sync guest cart when user logs in
   useEffect(() => {
@@ -1095,11 +1109,17 @@ export const CartProvider = ({ children }) => {
 
   // Listen for cart events
   useEffect(() => {
+    if (!isInitialized.current) return;
+    
     const handleCartUpdate = (event) => {
-      loadCart();
+      console.log('[CartContext] Received cart:updated event');
+      if (!state.isLoading) {
+        loadCart();
+      }
     };
 
     const handleCartClear = () => {
+      console.log('[CartContext] Received cart:cleared event');
       dispatch({ type: ActionTypes.RESET_CART });
     };
 
@@ -1110,7 +1130,7 @@ export const CartProvider = ({ children }) => {
       window.removeEventListener('cart:updated', handleCartUpdate);
       window.removeEventListener('cart:cleared', handleCartClear);
     };
-  }, [loadCart]);
+  }, [loadCart, state.isLoading]);
 
   // ===========================================================================
   // CONTEXT VALUE
