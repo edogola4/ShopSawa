@@ -31,7 +31,7 @@ import { useApp } from '../context/AppContext';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { orderService } from '../services/order.service';
-import { formatCurrency, formatDate, formatDateTime } from '../utils/helpers';
+import { formatCurrency, formatDate } from '../utils/helpers';
 
 const OrderHistoryPage = () => {
   const navigate = useNavigate();
@@ -674,7 +674,7 @@ const OrderCard = ({
                         {event.status.replace('_', ' ')}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {formatDateTime(event.timestamp)}
+                        {formatDate(event.timestamp)}
                       </p>
                       {event.note && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

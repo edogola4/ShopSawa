@@ -292,27 +292,52 @@ const ProfilePage = () => {
     try {
       setLoading(true);
       
+      // Create a temporary URL for the selected image to show it immediately
+      const tempUrl = URL.createObjectURL(file);
+      
+      // Update the user's avatar in the local state for immediate feedback
+      await updateProfile({
+        ...user,
+        avatar: {
+          ...user?.avatar,
+          url: tempUrl
+        }
+      });
+      
       const formData = new FormData();
       formData.append('avatar', file);
       
       const response = await userService.uploadAvatar(formData);
       
       if (response.success) {
+        // Update the user's avatar with the final URL from the server
+        await updateProfile({
+          ...user,
+          avatar: {
+            ...user?.avatar,
+            url: response.data.avatarUrl || tempUrl
+          }
+        });
+        
         addNotification({
           type: 'success',
           title: 'Avatar Updated',
           message: 'Your profile picture has been updated'
         });
-        // Refresh user data
-        loadUserData();
+        
+        // Refresh user data to ensure everything is in sync
+        await loadUserData();
       } else {
+        // Revert to the previous avatar if upload fails
+        await updateProfile(user);
         throw new Error(response.message || 'Failed to upload avatar');
       }
     } catch (error) {
+      console.error('Avatar upload error:', error);
       addNotification({
         type: 'error',
         title: 'Upload Failed',
-        message: error.message
+        message: error.message || 'Failed to update your profile picture. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -1446,7 +1471,7 @@ const PreferencesTab = ({ privacy, onPrivacyUpdate, theme, onThemeToggle }) => (
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-white text-red-600">Delete Account</p>
+              <p className="font-medium text-red-600 dark:text-white">Delete Account</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Permanently delete your account and all data
               </p>

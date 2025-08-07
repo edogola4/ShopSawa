@@ -24,16 +24,34 @@ const CartPage = () => {
   const { user } = useAuth();
   const { showNotification } = useNotification();
 
+  // Log cart state changes
+  useEffect(() => {
+    console.log('[CartPage] Cart state updated:', {
+      items: cartItems,
+      summary,
+      isLoading
+    });
+  }, [cartItems, summary, isLoading]);
+
   // Load cart data when component mounts or when cart changes
   useEffect(() => {
+    console.log('[CartPage] Component mounted or cart changed, loading cart...');
+    
     const fetchCart = async () => {
       try {
+        console.log('[CartPage] Calling loadCart()...');
         const result = await loadCart();
+        console.log('[CartPage] loadCart result:', result);
+        
         if (!result.success) {
-          throw new Error(result.error || 'Failed to load cart');
+          const errorMsg = result.error || 'Failed to load cart';
+          console.error('[CartPage] Error loading cart:', errorMsg);
+          throw new Error(errorMsg);
         }
+        
+        console.log('[CartPage] Cart loaded successfully');
       } catch (error) {
-        console.error('Error loading cart:', error);
+        console.error('[CartPage] Error in fetchCart:', error);
         showNotification('error', error.message || 'Failed to load cart');
       }
     };
