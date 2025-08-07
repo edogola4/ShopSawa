@@ -150,25 +150,62 @@ function showDashboard() {
 async function apiCall(endpoint, options = {}) {
     console.log('API call to:', `${API_BASE}${endpoint}`);
     
-    const config = {
-        headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-            ...options.headers
-        },
-        ...options
+    // Get the latest auth token in case it was updated
+    const token = localStorage.getItem('adminToken') || authToken;
+    
+    // Set up default headers
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(options.headers || {})
     };
-
-    const response = await fetch(`${API_BASE}${endpoint}`, config);
-    const data = await response.json();
     
-    console.log('API response:', response.status, data);
+    // Create config with defaults
+    const config = {
+        method: 'GET',
+        credentials: 'include', // Important for cookies if using httpOnly
+        ...options,
+        headers
+    };
     
-    if (!response.ok) {
-        throw new Error(data.message || 'API call failed');
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, config);
+        const data = await response.json();
+        
+        console.log('API response:', {
+            url: `${API_BASE}${endpoint}`,
+            status: response.status,
+            statusText: response.statusText,
+            data
+        });
+        
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+            console.log('Authentication required, redirecting to login');
+            logout();
+            throw new Error('Your session has expired. Please log in again.');
+        }
+        
+        // Handle other error statuses
+        if (!response.ok) {
+            throw new Error(data.message || `API request failed with status ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('API call error:', {
+            url: `${API_BASE}${endpoint}`,
+            error: error.message,
+            stack: error.stack
+        });
+        
+        // Show user-friendly error message
+        if (error.message.includes('Failed to fetch')) {
+            throw new Error('Network error. Please check your connection and try again.');
+        }
+        
+        throw error; // Re-throw the error for the caller to handle
     }
-    
-    return data;
 }
 
 // ===== CATEGORY MANAGEMENT FUNCTIONS =====
