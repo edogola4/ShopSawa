@@ -116,10 +116,20 @@ const ProductFormPageContent = () => {
   };
 
   const removeImage = (index) => {
+    const imageToRemove = formData.images[index];
+    
+    // Clean up object URL to prevent memory leaks
+    if (imageToRemove && imageToRemove.preview) {
+      URL.revokeObjectURL(imageToRemove.preview);
+      console.log('🗑️ Cleaned up preview URL for:', imageToRemove.name || 'image');
+    }
+    
     setFormData(prev => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
+    
+    console.log(`🗑️ Removed image at index ${index}`);
   };
 
   const handleDragOver = useCallback((e) => {
@@ -144,11 +154,14 @@ const ProductFormPageContent = () => {
     setIsDragging(false);
     
     const files = Array.from(e.dataTransfer.files).filter(file => 
-      file.type.startsWith('image/')
+      file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024
     );
     
     if (files.length > 0) {
+      console.log('📂 Dropped', files.length, 'image files');
       handleImageUpload({ target: { files } });
+    } else {
+      setError('Please drop valid image files (PNG, JPG, WebP) under 5MB.');
     }
   }, []);
 
@@ -157,31 +170,63 @@ const ProductFormPageContent = () => {
     
     if (files.length === 0) return;
     
-    // Filter out any invalid files and create previews
-    const validFiles = files.filter(file => file instanceof Blob);
+    console.log('📸 Processing', files.length, 'image files');
     
+    // Filter and validate files
+    const validFiles = files.filter(file => {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        console.warn('Skipping non-image file:', file.name);
+        return false;
+      }
+      
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        console.warn('Skipping large file:', file.name, 'Size:', file.size);
+        toast.error && toast.error(`File ${file.name} is too large. Maximum size is 5MB.`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (validFiles.length === 0) {
+      setError('No valid image files selected. Please choose PNG, JPG, or WebP files under 5MB.');
+      return;
+    }
+    
+    // Create image objects with previews
     const newImages = validFiles.map(file => {
       try {
+        const preview = URL.createObjectURL(file);
+        console.log('✅ Created preview for:', file.name);
+        
         return {
-          file,
-          preview: URL.createObjectURL(file)
+          file: file,
+          preview: preview,
+          name: file.name,
+          size: file.size,
+          type: file.type
         };
       } catch (error) {
         console.error('Error creating preview for file:', file.name, error);
         return null;
       }
-    }).filter(Boolean); // Remove any null entries from failed previews
+    }).filter(Boolean); // Remove any null entries
     
     if (newImages.length > 0) {
       setFormData(prev => ({
         ...prev,
         images: [...prev.images, ...newImages]
       }));
+      
+      console.log(`📸 Added ${newImages.length} images to form`);
+      setError(''); // Clear any previous errors
     }
     
-    // Clear the file input to allow selecting the same file again
+    // Clear the file input
     if (e.target) {
-      e.target.value = null;
+      e.target.value = '';
     }
   };
 
@@ -372,20 +417,15 @@ const ProductFormPageContent = () => {
     setError('');
 
     try {
-      // Debug: Check token in localStorage
-      const tokenFromStorage = localStorage.getItem('shopsawa_auth_token');
-      console.log('🔑 Token from localStorage:', tokenFromStorage ? 'Token exists' : 'No token found');
-      
-      // Check if API service has token
+      // Debug: Check token
       const apiToken = api.getAuthToken();
-      console.log('🔑 Token from API service:', apiToken ? 'Token exists' : 'No token found');
-      
       if (!apiToken) {
         throw new Error('No authentication token found. Please log in again.');
       }
+      
       console.log('Form data before submission:', formData);
       
-      // Create a plain JavaScript object with all the form data
+      // Create base product data
       const productData = {
         name: formData.name,
         description: formData.description || 'No description provided',
@@ -408,61 +448,129 @@ const ProductFormPageContent = () => {
       // Log the data being sent
       console.log('Product data being sent:', JSON.stringify(productData, null, 2));
 
-      // Make the API request with detailed logging
-      const url = id ? `/admin/products/${id}` : '/admin/products';
-      const method = id ? 'PUT' : 'POST';
+      const url = isEditMode ? `/admin/products/${id}` : '/admin/products';
+      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN) || apiToken;
       
-      console.log(`Sending ${method} request to:`, url);
+      // Check if we have images to upload
+      const hasImages = formData.images && formData.images.length > 0;
+      const hasNewImages = hasImages && formData.images.some(img => 
+        img.file instanceof File || img instanceof File
+      );
       
-      // Get the token from secureStorage
-      const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN);
-      console.log('🔑 Token from secureStorage:', token ? 'Token exists' : 'No token found');
-      
-      if (!token) {
-        // Try to get token from localStorage as fallback
-        const tokenFromLocalStorage = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        console.log('🔑 Token from localStorage:', tokenFromLocalStorage || 'No token found');
+      if (hasNewImages) {
+        console.log('📤 Sending FormData with images');
         
-        if (!tokenFromLocalStorage) {
-          throw new Error('Authentication required. Please log in again.');
+        // Create FormData for images
+        const formDataObj = new FormData();
+        
+        // Add all product data to FormData
+        Object.keys(productData).forEach(key => {
+          if (productData[key] !== null && productData[key] !== undefined) {
+            if (typeof productData[key] === 'object' && !Array.isArray(productData[key])) {
+              // Handle nested objects (like SEO)
+              formDataObj.append(key, JSON.stringify(productData[key]));
+            } else if (Array.isArray(productData[key])) {
+              // Handle arrays (like tags) - send as JSON string
+              formDataObj.append(key, JSON.stringify(productData[key]));
+            } else {
+              formDataObj.append(key, String(productData[key]));
+            }
+          }
+        });
+        
+        // Add image files to FormData
+        formData.images.forEach((image, index) => {
+          const file = image.file || image;
+          if (file instanceof File) {
+            formDataObj.append('images', file, file.name);
+            console.log(`Added image ${index + 1}:`, file.name, file.size, 'bytes');
+          }
+        });
+        
+        // Log FormData contents for debugging
+        console.log('📤 FormData contents:');
+        for (let [key, value] of formDataObj.entries()) {
+          if (value instanceof File) {
+            console.log(`${key}: File(${value.name}, ${value.size} bytes)`);
+          } else {
+            console.log(`${key}:`, value);
+          }
         }
         
-        // Try to use the token from localStorage
-        api.setAuthToken(tokenFromLocalStorage);
-      }
-      
-      // Log the full request configuration
-      console.log('🔧 Request configuration:', {
-        method: id ? 'PUT' : 'POST',
-        url,
-        data: productData,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
+        // Make request with FormData
+        const response = isEditMode 
+          ? await api.put(url, formDataObj, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type - let browser set it with boundary
+              }
+            })
+          : await api.post(url, formDataObj, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type - let browser set it with boundary
+              }
+            });
+        
+        console.log('✅ API Response with images:', response);
+        
+        // Success handling
+        if (response && (response.success || response.status === 'success' || response.data)) {
+          console.log('🎉 Product with images created successfully!');
+          
+          if (toast && typeof toast.success === 'function') {
+            toast.success(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
+          } else {
+            alert(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
+          }
+          
+          setTimeout(() => {
+            navigate('/admin/products');
+          }, 1500);
+          
+          return response;
         }
-      });
-      
-      // Make the request with explicit headers
-      const response = id 
-        ? await api.put(url, productData, {
-            headers: {
-              'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
-            }
-          })
-        : await api.post(url, productData, {
-            headers: {
-              'Authorization': `Bearer ${token || secureStorage.get(STORAGE_KEYS.AUTH_TOKEN)}`
-            }
-          });
-      
-      console.log('✅ API Response:', response);
-      
-      // If we get here, the request was successful
-      return response;
-      
-      // Show success message and redirect
-      alert(`Product ${id ? 'updated' : 'created'} successfully!`);
-      navigate('/admin/products');
+        
+      } else {
+        console.log('📤 Sending JSON data (no new images)');
+        
+        // No new images - send JSON
+        const response = isEditMode 
+          ? await api.put(url, productData, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              }
+            })
+          : await api.post(url, productData, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              }
+            });
+        
+        console.log('✅ API Response:', response);
+        
+        // Success handling
+        if (response && (response.success || response.status === 'success' || response.data)) {
+          console.log('🎉 Product operation successful!');
+          
+          if (toast && typeof toast.success === 'function') {
+            toast.success(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
+          } else {
+            alert(`Product ${isEditMode ? 'updated' : 'created'} successfully!`);
+          }
+          
+          setTimeout(() => {
+            navigate('/admin/products');
+          }, 1500);
+          
+          return response;
+        } else {
+          console.warn('⚠️ Unexpected response format:', response);
+          setError('Product may have been saved, but received unexpected response.');
+        }
+      } 
     } catch (err) {
       console.error('Error saving product:', err);
       

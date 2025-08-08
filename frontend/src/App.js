@@ -1,4 +1,4 @@
-// frontend/src/App.js - FIXED VERSION
+// frontend/src/App.js
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -6,9 +6,11 @@ import { AuthProvider } from './context/AuthContext';
 import { SimpleCartProvider } from './context/SimpleCartContext';
 import { AppProvider } from './context/AppContext';
 import { NotificationProvider } from './context/NotificationContext';
+import ThemeProvider from './theme/ThemeProvider';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import AdminRoute from './components/common/AdminRoute';
+import 'inter-ui/inter.css'; // Modern, professional font
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -41,99 +43,96 @@ import './styles/globals.css';
 
 function App() {
   return (
-    <Router 
-      future={{ 
-        v7_startTransition: true,
-        v7_relativeSplatPath: true 
-      }}
-    >
-      <AuthProvider>
-        <SimpleCartProvider>
-          <AppProvider>
-            <NotificationProvider>
-              <div className="App">
-              <Routes>
-                {/* Public Routes - No Layout */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/admin/login" element={<AdminLoginPage />} />
-                <Route path="/admin/register" element={<AdminRegisterPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                
-                {/* Public Routes - With Layout */}
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<HomePage />} />
-                  <Route path="products" element={<ProductsPage />} />
-                  <Route path="products/:id" element={<ProductDetailPage />} />
-                  <Route path="cart" element={<CartPage />} />
-                  
-                  {/* Protected Routes */}
-                  <Route path="checkout" element={
-                    <ProtectedRoute>
-                      <CheckoutPage />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="profile" element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="order-confirmation/:orderId" element={
-                    <ProtectedRoute>
-                      <OrderConfirmationPage />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="orders" element={
-                    <ProtectedRoute>
-                      <OrderHistoryPage />
-                    </ProtectedRoute>
-                  } />
-                  
-                  {/* Static Pages */}
-                  <Route path="about" element={<AboutPage />} />
-                  <Route path="contact" element={<ContactPage />} />
-                  <Route path="terms" element={<TermsPage />} />
-                  <Route path="privacy" element={<PrivacyPage />} />
-                  <Route path="faq" element={<FAQPage />} />
-                  <Route path="shipping" element={<Navigate to="/faq#shipping" replace />} />
-                  <Route path="returns" element={<Navigate to="/faq#returns" replace />} />
-                  <Route path="size-guide" element={<Navigate to="/faq#sizing" replace />} />
-                  <Route path="track-order" element={<Navigate to="/profile/orders" replace />} />
-                  <Route path="help" element={<Navigate to="/contact" replace />} />
-                  <Route path="careers" element={<Navigate to="/about#careers" replace />} />
-                  <Route path="blog" element={<Navigate to="/" replace />} />
-                  <Route path="sustainability" element={<Navigate to="/about" replace />} />
-                  <Route path="accessibility" element={<AccessibilityPage />} />
-                  <Route path="consumer-rights" element={<Navigate to="/terms" replace />} />
-                  <Route path="refund-policy" element={<Navigate to="/terms#refunds" replace />} />
-                  
-                  {/* Admin Routes - All admin routes are nested under /admin */}
-                  <Route path="admin/*" element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  } />
-                  <Route path="cookies" element={<Navigate to="/privacy#cookies" replace />} />
-                  
-                  {/* Category Routes */}
-                  <Route path="categories" element={<CategoriesPage />} />
-                  <Route path="category/:categoryId" element={<Navigate to="/products" replace />} />
-                  
-                  {/* Search Route */}
-                  <Route path="search" element={<Navigate to="/products" replace />} />
-                  
-                  {/* 404 Page */}
-                  <Route path="404" element={<NotFoundPage />} />
-                  <Route path="*" element={<Navigate to="/404" replace />} />
-                </Route>
-              </Routes>
-              </div>
-            </NotificationProvider>
-          </AppProvider>
-        </SimpleCartProvider>
-      </AuthProvider>
+    <Router>
+      <AppProvider>
+        <NotificationProvider>
+          <AuthProvider>
+            <SimpleCartProvider>
+              <ThemeProvider>
+                <div className="App">
+                  <Routes>
+                    {/* Public Routes - No Layout */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/admin/login" element={<AdminLoginPage />} />
+                    <Route path="/admin/register" element={<AdminRegisterPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    
+                    {/* Public Routes - With Layout */}
+                    <Route path="/" element={<Layout />}>
+                      <Route index element={<HomePage />} />
+                      <Route path="products" element={<ProductsPage />} />
+                      <Route path="products/:id" element={<ProductDetailPage />} />
+                      <Route path="cart" element={<CartPage />} />
+                      
+                      {/* Protected Routes */}
+                      <Route path="checkout" element={
+                        <ProtectedRoute>
+                          <CheckoutPage />
+                        </ProtectedRoute>
+                      } />
+                      
+                      <Route path="profile" element={
+                        <ProtectedRoute>
+                          <ProfilePage />
+                        </ProtectedRoute>
+                      } />
+                      
+                      <Route path="order-confirmation/:orderId" element={
+                        <ProtectedRoute>
+                          <OrderConfirmationPage />
+                        </ProtectedRoute>
+                      } />
+                      
+                      <Route path="orders" element={
+                        <ProtectedRoute>
+                          <OrderHistoryPage />
+                        </ProtectedRoute>
+                      } />
+                      
+                      {/* Static Pages */}
+                      <Route path="about" element={<AboutPage />} />
+                      <Route path="contact" element={<ContactPage />} />
+                      <Route path="terms" element={<TermsPage />} />
+                      <Route path="privacy" element={<PrivacyPage />} />
+                      <Route path="faq" element={<FAQPage />} />
+                      <Route path="shipping" element={<Navigate to="/faq#shipping" replace />} />
+                      <Route path="returns" element={<Navigate to="/faq#returns" replace />} />
+                      <Route path="size-guide" element={<Navigate to="/faq#sizing" replace />} />
+                      <Route path="track-order" element={<Navigate to="/profile/orders" replace />} />
+                      <Route path="help" element={<Navigate to="/contact" replace />} />
+                      <Route path="careers" element={<Navigate to="/about#careers" replace />} />
+                      <Route path="blog" element={<Navigate to="/" replace />} />
+                      <Route path="sustainability" element={<Navigate to="/about" replace />} />
+                      <Route path="accessibility" element={<AccessibilityPage />} />
+                      <Route path="consumer-rights" element={<Navigate to="/terms" replace />} />
+                      <Route path="refund-policy" element={<Navigate to="/terms#refunds" replace />} />
+                      
+                      {/* Admin Routes - All admin routes are nested under /admin */}
+                      <Route path="admin/*" element={
+                        <AdminRoute>
+                          <AdminDashboard />
+                        </AdminRoute>
+                      } />
+                      <Route path="cookies" element={<Navigate to="/privacy#cookies" replace />} />
+                      
+                      {/* Category Routes */}
+                      <Route path="categories" element={<CategoriesPage />} />
+                      <Route path="category/:categoryId" element={<Navigate to="/products" replace />} />
+                      
+                      {/* Search Route */}
+                      <Route path="search" element={<Navigate to="/products" replace />} />
+                      
+                      {/* 404 Page */}
+                      <Route path="404" element={<NotFoundPage />} />
+                      <Route path="*" element={<Navigate to="/404" replace />} />
+                    </Route>
+                  </Routes>
+                </div>
+              </ThemeProvider>
+            </SimpleCartProvider>
+          </AuthProvider>
+        </NotificationProvider>
+      </AppProvider>
     </Router>
   );
 }
