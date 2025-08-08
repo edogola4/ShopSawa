@@ -3,6 +3,13 @@
 const express = require('express');
 const { protect, restrictTo } = require('../middleware/auth');
 
+// Create a router for non-file-upload routes
+const jsonRouter = express.Router();
+
+// Apply body parsing middleware to the jsonRouter
+jsonRouter.use(express.json({ limit: '10mb' }));
+jsonRouter.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 // Import admin controllers
 const {
   getDashboardOverview,
@@ -37,7 +44,8 @@ const {
   getProduct,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  upload // Import the upload middleware from product controller
 } = require('../controllers/products/productController');
 
 const {
@@ -53,6 +61,9 @@ const router = express.Router();
 // Apply authentication and admin authorization to all admin routes
 router.use(protect);
 router.use(restrictTo('admin', 'super_admin'));
+
+// Use jsonRouter for non-file-upload routes
+router.use(jsonRouter);
 
 // ======================
 // DASHBOARD ROUTES
@@ -193,22 +204,21 @@ router.get('/orders/:id', getOrder);
 router.patch('/orders/:id/status', updateOrderStatus);
 
 // ======================
-// PRODUCT MANAGEMENT ROUTES
+// PRODUCT ROUTES
 // ======================
 
-/**
- * @route   GET /api/admin/products
- * @desc    Get all products with pagination and filtering
- * @access  Admin
- */
-router.get('/products', getAllProducts);
+// ======================
+// PRODUCT ROUTES
+// ======================
+router.route('/products')
+  .get(getAllProducts)
+  // Apply multer middleware for file uploads
+  .post(upload.array('images', 10), createProduct);
 
-/**
- * @route   POST /api/admin/products
- * @desc    Create new product
- * @access  Admin
- */
-router.post('/products', createProduct);
+router.route('/products/:id')
+  .get(getProduct)
+  .patch(upload.array('images', 10), updateProduct)
+  .delete(deleteProduct);
 
 /**
  * @route   GET /api/admin/products/:id

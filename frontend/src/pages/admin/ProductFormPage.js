@@ -423,15 +423,15 @@ const ProductFormPageContent = () => {
         throw new Error('No authentication token found. Please log in again.');
       }
       
-      console.log('Form data before submission:', formData);
+      console.log('✅ Form data before submission:', formData);
       
-      // Create base product data
+      // Create base product data with proper validation
       const productData = {
-        name: formData.name,
-        description: formData.description || 'No description provided',
+        name: formData.name?.trim() || '',
+        description: formData.description?.trim() || 'No description provided',
         price: Number(formData.price) || 0,
-        category: formData.category,
-        sku: formData.sku || '',
+        category: formData.category || '',
+        sku: formData.sku?.trim() || '',
         comparePrice: formData.comparePrice ? Number(formData.comparePrice) : 0,
         costPrice: formData.costPrice ? Number(formData.costPrice) : 0,
         stock: formData.stock ? Number(formData.stock) : 0,
@@ -440,13 +440,23 @@ const ProductFormPageContent = () => {
         status: formData.status || 'active',
         tags: tags.length > 0 ? tags : [],
         seo: {
-          title: formData.seoTitle || '',
-          description: formData.seoDescription || ''
+          title: formData.seoTitle?.trim() || '',
+          description: formData.seoDescription?.trim() || ''
         }
       };
       
-      // Log the data being sent
-      console.log('Product data being sent:', JSON.stringify(productData, null, 2));
+      // ✅ CRITICAL FIX: Validate required fields before sending
+      if (!productData.name) {
+        throw new Error('Product name is required');
+      }
+      if (!productData.category) {
+        throw new Error('Category is required');
+      }
+      if (!productData.price || productData.price <= 0) {
+        throw new Error('Valid price is required');
+      }
+      
+      console.log('✅ Product data being sent:', JSON.stringify(productData, null, 2));
 
       const url = isEditMode ? `/admin/products/${id}` : '/admin/products';
       const token = secureStorage.get(STORAGE_KEYS.AUTH_TOKEN) || apiToken;
@@ -460,34 +470,40 @@ const ProductFormPageContent = () => {
       if (hasNewImages) {
         console.log('📤 Sending FormData with images');
         
-        // Create FormData for images
+        // ✅ FIXED: Create FormData properly
         const formDataObj = new FormData();
         
-        // Add all product data to FormData
-        Object.keys(productData).forEach(key => {
-          if (productData[key] !== null && productData[key] !== undefined) {
-            if (typeof productData[key] === 'object' && !Array.isArray(productData[key])) {
-              // Handle nested objects (like SEO)
-              formDataObj.append(key, JSON.stringify(productData[key]));
-            } else if (Array.isArray(productData[key])) {
-              // Handle arrays (like tags) - send as JSON string
-              formDataObj.append(key, JSON.stringify(productData[key]));
-            } else {
-              formDataObj.append(key, String(productData[key]));
-            }
-          }
-        });
+        // ✅ CRITICAL: Add each field individually to FormData
+        formDataObj.append('name', productData.name);
+        formDataObj.append('description', productData.description);
+        formDataObj.append('price', String(productData.price));
+        formDataObj.append('category', productData.category);
+        formDataObj.append('sku', productData.sku);
+        formDataObj.append('comparePrice', String(productData.comparePrice));
+        formDataObj.append('costPrice', String(productData.costPrice));
+        formDataObj.append('stock', String(productData.stock));
+        formDataObj.append('lowStockAlert', String(productData.lowStockAlert));
+        formDataObj.append('weight', String(productData.weight));
+        formDataObj.append('status', productData.status);
+        
+        // Handle tags array - append as JSON string
+        if (productData.tags.length > 0) {
+          formDataObj.append('tags', JSON.stringify(productData.tags));
+        }
+        
+        // Handle SEO object - append as JSON string
+        formDataObj.append('seo', JSON.stringify(productData.seo));
         
         // Add image files to FormData
         formData.images.forEach((image, index) => {
           const file = image.file || image;
           if (file instanceof File) {
             formDataObj.append('images', file, file.name);
-            console.log(`Added image ${index + 1}:`, file.name, file.size, 'bytes');
+            console.log(`✅ Added image ${index + 1}:`, file.name, file.size, 'bytes');
           }
         });
         
-        // Log FormData contents for debugging
+        // ✅ FIXED: Debug FormData contents
         console.log('📤 FormData contents:');
         for (let [key, value] of formDataObj.entries()) {
           if (value instanceof File) {

@@ -77,10 +77,12 @@ const limiter = rateLimit({
 // Apply rate limiting to all API routes
 app.use('/api', limiter);
 
-// Body parsing middleware
+// Cookie parser middleware
+app.use(cookieParser());
+
+// Body parsing middleware - parse application/json and application/x-www-form-urlencoded
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cookieParser()); // ✅ Added this
 
 // Compression middleware
 app.use(compression());

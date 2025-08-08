@@ -144,6 +144,27 @@ const createProduct = catchAsync(async (req, res, next) => {
   console.log('📝 Request body:', req.body);
   console.log('📸 Files received:', req.files ? req.files.length : 0);
   console.log('📋 Content-Type:', req.get('content-type'));
+  console.log('🔍 Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('🔍 Raw request keys:', Object.keys(req));
+  
+  // Log all fields in the request
+  console.log('🔍 Form fields received:');
+  Object.keys(req.body).forEach(key => {
+    console.log(`  ${key}: ${typeof req.body[key]} =`, req.body[key]);
+  });
+  
+  // Log files if present
+  if (req.files && req.files.length > 0) {
+    console.log('📸 Files details:');
+    req.files.forEach((file, index) => {
+      console.log(`  File ${index + 1}:`, {
+        fieldname: file.fieldname,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      });
+    });
+  }
   
   // ✅ CRITICAL: When using FormData, multer puts form fields in req.body
   // and files in req.files. All the data should be in req.body already.
@@ -175,6 +196,9 @@ const createProduct = catchAsync(async (req, res, next) => {
     }
   });
 
+  // ✅ Handle uploaded images - transform to match Product model schema
+  // Note: We'll handle the images later in the final product data
+
   console.log('📊 Processed product data:', {
     name: productData.name,
     description: productData.description?.substring(0, 50) + '...',
@@ -200,11 +224,16 @@ const createProduct = catchAsync(async (req, res, next) => {
     return next(new AppError('Category not found', 400));
   }
 
-  // ✅ Handle uploaded images
-  let imageUrls = [];
+  // ✅ Handle uploaded images - format according to Product model schema
+  let images = [];
   if (req.files && req.files.length > 0) {
-    imageUrls = req.files.map(file => `/uploads/products/${file.filename}`);
-    console.log('📸 Image URLs created:', imageUrls);
+    images = req.files.map((file, index) => ({
+      public_id: file.filename,
+      url: `/uploads/products/${file.filename}`,
+      alt: file.originalname,
+      isMain: index === 0 // Set first image as main
+    }));
+    console.log('📸 Images processed:', images);
   }
 
   // ✅ Prepare final product data
@@ -222,7 +251,7 @@ const createProduct = catchAsync(async (req, res, next) => {
     status: productData.status || 'active',
     tags: productData.tags || [],
     seo: productData.seo || { title: '', description: '' },
-    images: imageUrls, // Add processed image URLs
+    images: images, // Add processed images with proper schema
     createdBy: req.user?.id || null,
   };
 
@@ -276,13 +305,11 @@ const updateProduct = catchAsync(async (req, res, next) => {
   
   // ✅ Handle image files if any
   if (req.files && req.files.length > 0) {
-    const newImages = req.files.map(file => ({
-      url: `/uploads/${file.filename}`,
-      filename: file.filename,
-      originalName: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
-      isPrimary: false // Default to false, can be updated later
+    const newImages = req.files.map((file, index) => ({
+      public_id: file.filename, // Using the generated filename as public_id
+      url: `/uploads/products/${file.filename}`, // Path where the file is saved
+      alt: file.originalname,
+      isMain: false // Don't set new images as main by default during update
     }));
     
     // Get existing product to append new images

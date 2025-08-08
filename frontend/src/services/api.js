@@ -424,8 +424,28 @@ class ApiService {
     // Add query parameters
     const urlWithParams = this.buildUrlWithParams(fullUrl, params);
 
-    // Create headers
-    const headers = this.createHeaders(restConfig);
+    // ✅ FIXED: Handle FormData properly
+    let headers;
+    let body;
+    
+    if (data instanceof FormData) {
+      // ✅ CRITICAL: For FormData, don't set Content-Type header
+      // Let the browser set it automatically with the correct boundary
+      headers = {
+        ...restConfig.headers
+      };
+      // Remove Content-Type if it was set
+      delete headers['Content-Type'];
+      body = data;
+      
+      console.log('📤 Sending FormData request');
+    } else {
+      // ✅ For JSON data, set proper headers
+      headers = this.createHeaders(restConfig);
+      body = data ? JSON.stringify(data) : null;
+      
+      console.log('📤 Sending JSON request');
+    }
 
     // Create AbortController for timeout
     const controller = new AbortController();
@@ -440,21 +460,17 @@ class ApiService {
         ...restConfig
       };
 
-      // Add body for POST/PUT/PATCH requests
-      if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
-        if (data instanceof FormData) {
-          delete fetchOptions.headers['Content-Type'];
-          fetchOptions.body = data;
-        } else {
-          fetchOptions.body = JSON.stringify(data);
-        }
+      // ✅ FIXED: Add body for POST/PUT/PATCH requests
+      if (body && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+        fetchOptions.body = body;
       }
 
       console.log('🚀 Making request:', {
         url: urlWithParams,
         method: method.toUpperCase(),
-        headers,
-        body: data
+        headers: headers,
+        bodyType: data instanceof FormData ? 'FormData' : typeof data,
+        bodySize: data instanceof FormData ? 'FormData object' : (body ? body.length : 0)
       });
 
       const response = await fetch(urlWithParams, fetchOptions);
