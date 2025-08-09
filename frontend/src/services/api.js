@@ -45,6 +45,10 @@ class ApiService {
           Authorization: `Bearer ${token}`
         };
       }
+      console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`, {
+        params: config.params,
+        data: config.data
+      });
       return config;
     });
 
@@ -461,8 +465,14 @@ class ApiService {
       };
 
       // ✅ FIXED: Add body for POST/PUT/PATCH requests
-      if (body && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
-        fetchOptions.body = body;
+      if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+        if (headers['Content-Type'] === 'application/json') {
+          fetchOptions.body = JSON.stringify(data);
+        } else if (data instanceof FormData) {
+          fetchOptions.body = data;
+        } else {
+          fetchOptions.body = data;
+        }
       }
 
       console.log('🚀 Making request:', {
@@ -641,6 +651,15 @@ class ApiService {
   }
 
   async post(url, data = null, config = {}) {
+    // If data is provided and content-type is not set, default to application/json
+    if (data && !(data instanceof FormData)) {
+      if (!config.headers) {
+        config.headers = {};
+      }
+      if (!config.headers['Content-Type'] && !(data instanceof FormData)) {
+        config.headers['Content-Type'] = 'application/json';
+      }
+    }
     return this.request({ ...config, url, method: 'POST', data });
   }
 
