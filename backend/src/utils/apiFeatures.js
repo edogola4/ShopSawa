@@ -29,13 +29,17 @@ class APIFeatures {
     // Parse the query and combine with category filter
     const query = JSON.parse(queryStr);
     
-    // Ensure we only show active products by default
-    if (!query.status) {
+    // Only apply status filter for product queries
+    const isProductQuery = this.query.mongooseCollection?.collectionName === 'products';
+    if (isProductQuery && !query.status) {
       query.status = 'active';
     }
 
     // Combine all filters
     const finalQuery = { ...query, ...categoryFilter };
+    
+    // For debugging
+    console.log('🔍 Final query filter:', JSON.stringify(finalQuery, null, 2));
     
     console.log('🔍 Filtering products with query:', JSON.stringify(finalQuery, null, 2));
     this.query = this.query.find(finalQuery);

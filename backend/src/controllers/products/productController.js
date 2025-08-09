@@ -245,8 +245,12 @@ const createProduct = catchAsync(async (req, res, next) => {
     sku: productData.sku || `SKU${Date.now()}${Math.floor(Math.random() * 1000)}`,
     comparePrice: productData.comparePrice || 0,
     costPrice: productData.costPrice || 0,
-    stock: productData.stock || 0,
-    lowStockAlert: productData.lowStockAlert || 5,
+    inventory: {
+      quantity: Number(productData.stock) || 0,
+      reserved: 0,
+      lowStockThreshold: Number(productData.lowStockAlert) || 5,
+      trackQuantity: true
+    },
     weight: productData.weight || 0,
     status: productData.status || 'active',
     tags: productData.tags || [],
