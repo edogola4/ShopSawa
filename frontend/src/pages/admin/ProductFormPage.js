@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../utils/constants';
 
@@ -39,6 +41,27 @@ function ProductFormPageContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  
+  // Quill editor modules and formats
+  const quillModules = useMemo(() => ({
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['link', 'image'],
+      ['clean'],
+      [{ 'color': [] }, { 'background': [] }],
+      ['blockquote', 'code-block'],
+      [{ 'align': [] }],
+    ],
+  }), []);
+
+  const quillFormats = [
+    'header', 'bold', 'italic', 'underline', 'strike',
+    'list', 'bullet', 'link', 'image', 'color', 'background',
+    'blockquote', 'code-block', 'align'
+  ];
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -84,6 +107,14 @@ function ProductFormPageContent() {
         categoryName: ''
       }));
     }
+  };
+  
+  // Special handler for the Quill editor
+  const handleDescriptionChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      description: value
+    }));
   };
   
   const handleNewCategoryChange = (e) => {
@@ -192,10 +223,28 @@ function ProductFormPageContent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // If we're in the middle of creating a new category, handle that first
+    // Validate required fields
+    if (!formData.description || formData.description.trim() === '' || formData.description === '<p><br></p>') {
+      toast.error('Please enter a product description');
+      return;
+    }
+    
+    // Check if we need to create a new category first
     if (formData.category === 'new' && newCategoryName.trim()) {
-      await createNewCategory();
-      return; // Let the category creation handler handle the rest
+      try {
+        const newCategory = await createNewCategory();
+        if (!newCategory) return; // Stop if category creation failed
+        
+        // Update form data with the new category
+        setFormData(prev => ({
+          ...prev,
+          category: newCategory._id
+        }));
+      } catch (error) {
+        console.error('Error creating category:', error);
+        toast.error('Failed to create category');
+        return;
+      }
     }
     
     setLoading(true);
@@ -319,6 +368,36 @@ function ProductFormPageContent() {
                 onChange={handleChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
+            </div>
+            
+            <div className="col-span-full">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description *
+              </label>
+              <div className="mt-1">
+                <ReactQuill
+                  theme="snow"
+                  value={formData.description || ''}
+                  onChange={handleDescriptionChange}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  className={`bg-white rounded-md border ${
+                    !formData.description || formData.description.trim() === '' || formData.description === '<p><br></p>' 
+                      ? 'border-red-300' 
+                      : 'border-gray-300'
+                  } focus:border-blue-500 focus:ring-1 focus:ring-blue-500`}
+                  placeholder="Enter product description..."
+                />
+              </div>
+              <p className={`mt-1 text-sm ${
+                !formData.description || formData.description.trim() === '' || formData.description === '<p><br></p>' 
+                  ? 'text-red-600' 
+                  : 'text-gray-500'
+              }`}>
+                {!formData.description || formData.description.trim() === '' || formData.description === '<p><br></p>' 
+                  ? 'Description is required' 
+                  : 'Provide a detailed description of the product'}
+              </p>
             </div>
           </div>
 
