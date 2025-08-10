@@ -108,11 +108,6 @@ function App() {
                       <Route path="refund-policy" element={<Navigate to="/terms#refunds" replace />} />
                       
                       {/* Admin Routes - All admin routes are nested under /admin */}
-                      <Route path="admin/*" element={
-                        <AdminRoute>
-                          <AdminDashboard />
-                        </AdminRoute>
-                      } />
                       <Route path="cookies" element={<Navigate to="/privacy#cookies" replace />} />
                       
                       {/* Category Routes */}
@@ -126,6 +121,14 @@ function App() {
                       <Route path="404" element={<NotFoundPage />} />
                       <Route path="*" element={<Navigate to="/404" replace />} />
                     </Route>
+                    
+                    {/* Admin Routes - Outside the main layout */}
+                    <Route path="admin/*" element={
+                      <AdminRoute>
+                        <AdminDashboard />
+                      </AdminRoute>
+                    } />
+                    
                   </Routes>
                 </div>
               </ThemeProvider>

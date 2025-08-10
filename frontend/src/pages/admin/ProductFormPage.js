@@ -41,6 +41,100 @@ function ProductFormPageContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [images, setImages] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState({});
+  
+  // Handle drag events
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    handleImageUpload(files);
+  };
+  
+  // Handle file input change
+  const handleFileInputChange = (e) => {
+    const files = Array.from(e.target.files);
+    handleImageUpload(files);  
+  };
+  
+  // Process uploaded images
+  const handleImageUpload = (files) => {
+    const validFiles = files.filter(file => 
+      ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && 
+      file.size <= 5 * 1024 * 1024 // 5MB limit
+    );
+    
+    if (validFiles.length !== files.length) {
+      toast.error('Some files were invalid. Only JPG, PNG, and WebP files under 5MB are allowed.');
+    }
+    
+    // Create preview URLs for valid files
+    const newImages = validFiles.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+      status: 'pending'
+    }));
+    
+    setImages(prev => [...prev, ...newImages]);
+    
+    // Start upload simulation (replace with actual upload logic)
+    newImages.forEach((img, index) => {
+      const newIndex = images.length + index;
+      simulateUpload(newIndex);
+    });
+  };
+  
+  // Simulate upload progress (replace with actual upload logic)
+  const simulateUpload = (index) => {
+    setUploadProgress(prev => ({ ...prev, [index]: 0 }));
+    
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        newProgress[index] = Math.min(100, (newProgress[index] || 0) + 10);
+        
+        if (newProgress[index] === 100) {
+          clearInterval(interval);
+          setImages(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], status: 'completed' };
+            return updated;
+          });
+        }
+        
+        return newProgress;
+      });
+    }, 200);
+  };
+  
+  // Remove an image
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+    
+    // Clean up object URLs to prevent memory leaks
+    URL.revokeObjectURL(images[index]?.preview);
+  };
+  
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      images.forEach(image => URL.revokeObjectURL(image.preview));
+    };
+  }, [images]);
   
   // Quill editor modules and formats
   const quillModules = useMemo(() => ({
@@ -220,6 +314,33 @@ function ProductFormPageContent() {
     }
   };
 
+  // Upload images to the server
+  const uploadImages = async (files) => {
+    const formData = new FormData();
+    
+    // Add each file to the form data
+    files.forEach(file => {
+      formData.append('images', file);
+    });
+    
+    try {
+      const response = await api.post(API_ENDPOINTS.PRODUCTS.UPLOAD_MULTIPLE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          // Update progress state if needed
+        }
+      });
+      
+      return response.data; // Should return array of uploaded image URLs
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      throw error;
+    }
+  };
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -248,24 +369,49 @@ function ProductFormPageContent() {
     }
     
     setLoading(true);
+    
     try {
-      const payload = { ...formData };
+      // 1. Upload images first if there are any
+      let imageUrls = [];
+      const filesToUpload = images.filter(img => img.file).map(img => img.file);
+      
+      if (filesToUpload.length > 0) {
+        const uploadResponse = await uploadImages(filesToUpload);
+        imageUrls = uploadResponse.urls || [];
+      }
+      
+      // 2. Prepare product payload
+      const payload = { 
+        ...formData,
+        // If we have new images, add them to the payload
+        ...(imageUrls.length > 0 && { images: imageUrls })
+      };
       
       // Remove temporary fields before submission
       delete payload.categoryName;
       
+      // 3. Save the product
+      let savedProduct;
       if (isEditMode) {
-        await api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}`, payload);
+        savedProduct = await api.put(`${API_ENDPOINTS.PRODUCTS.BASE}/${productId}`, payload);
         toast.success('Product updated successfully');
       } else {
-        await api.post(API_ENDPOINTS.PRODUCTS, payload);
+        savedProduct = await api.post(API_ENDPOINTS.PRODUCTS.BASE, payload);
         toast.success('Product created successfully');
+      }
+      
+      // 4. If we have images and this is a new product, update the product with the image URLs
+      if (imageUrls.length > 0 && savedProduct?.data?._id) {
+        await api.put(`${API_ENDPOINTS.PRODUCTS.BASE}/${savedProduct.data._id}`, {
+          images: imageUrls
+        });
       }
       
       navigate('/admin/products');
     } catch (error) {
       console.error('Error saving product:', error);
-      toast.error('Failed to save product');
+      const errorMessage = error.response?.data?.message || 'Failed to save product';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -398,6 +544,99 @@ function ProductFormPageContent() {
                   ? 'Description is required' 
                   : 'Provide a detailed description of the product'}
               </p>
+            </div>
+            
+            {/* Image Upload Section */}
+            <div className="col-span-full">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Product Images</h3>
+              
+              <div 
+                className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-lg ${
+                  isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="space-y-1 text-center">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 48 48"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload files</span>
+                      <input 
+                        id="file-upload" 
+                        name="file-upload" 
+                        type="file" 
+                        className="sr-only" 
+                        multiple
+                        accept="image/jpeg, image/png, image/webp"
+                        onChange={handleFileInputChange}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, WebP up to 5MB
+                  </p>
+                </div>
+              </div>
+              
+              {/* Image Previews */}
+              {images.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-100">
+                        <img
+                          src={image.preview}
+                          alt={image.name}
+                          className="h-full w-full object-cover object-center"
+                        />
+                        {uploadProgress[index] < 100 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                            <div className="w-3/4 bg-gray-200 rounded-full h-2.5">
+                              <div 
+                                className="bg-blue-600 h-2.5 rounded-full" 
+                                style={{ width: `${uploadProgress[index]}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-1 flex justify-between text-xs text-gray-500">
+                        <span className="truncate">{image.name}</span>
+                        <span>{(image.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove image"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

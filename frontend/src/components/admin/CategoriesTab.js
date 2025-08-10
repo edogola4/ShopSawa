@@ -21,36 +21,59 @@ const CategoriesTab = ({ dashboardData = {}, loading, navigate }) => {
     try {
       setIsLoading(true);
       setError(null);
+      
       console.log('🔄 Fetching categories...');
       
-      // Add timestamp to prevent caching without custom headers
-      const timestamp = new Date().getTime();
-      const endpoint = `/admin/categories?t=${timestamp}`;
-      console.log(`🔍 Fetching from admin endpoint: ${endpoint}`);
+      // First, fetch all categories
+      const categoriesRes = await api.get('/admin/categories');
+      console.log('📦 Categories API Response:', categoriesRes.data);
       
-      // Make a simple GET request to the admin endpoint
-      const res = await api.get(endpoint);
-      console.log('📦 API Response:', res);
-      
-      // Handle different response structures
       let categoriesData = [];
       
-      if (res.data) {
-        // Try different response formats
-        if (Array.isArray(res.data)) {
-          categoriesData = res.data; // Direct array response
-        } else if (res.data.categories) {
-          categoriesData = res.data.categories; // { categories: [...] }
-        } else if (res.data.data) {
-          // Handle paginated response or similar
-          categoriesData = Array.isArray(res.data.data) 
-            ? res.data.data 
+      // Handle different response formats
+      if (categoriesRes.data) {
+        if (Array.isArray(categoriesRes.data)) {
+          categoriesData = categoriesRes.data;
+        } else if (categoriesRes.data.categories) {
+          categoriesData = categoriesRes.data.categories;
+        } else if (categoriesRes.data.data) {
+          categoriesData = Array.isArray(categoriesRes.data.data) 
+            ? categoriesRes.data.data 
             : [];
         }
       }
       
       console.log(`✅ Found ${categoriesData.length} categories`);
-      setCategories(categoriesData);
+      
+      // Then, fetch products count for each category
+      const categoriesWithCounts = await Promise.all(
+        categoriesData.map(async (category) => {
+          try {
+            console.log(`🔍 Fetching products for category: ${category.name} (${category._id})`);
+            const productsRes = await api.get(`/admin/products?category=${category._id}&limit=1`);
+            console.log(`📊 Products response for ${category.name}:`, productsRes.data);
+            
+            // Try different possible response structures for the count
+            const productCount = productsRes.data?.total || 
+                               productsRes.data?.pagination?.total || 
+                               (Array.isArray(productsRes.data) ? productsRes.data.length : 0) ||
+                               (Array.isArray(productsRes.data?.data) ? productsRes.data.data.length : 0) ||
+                               0;
+                               
+            console.log(`📦 Category ${category.name} has ${productCount} products`);
+            return { ...category, productCount };
+          } catch (error) {
+            console.error(`❌ Error fetching products for category ${category.name}:`, {
+              error: error.message,
+              response: error.response?.data
+            });
+            return { ...category, productCount: 0 };
+          }
+        })
+      );
+      
+      console.log('🏁 Final categories with counts:', categoriesWithCounts);
+      setCategories(categoriesWithCounts);
       
     } catch (err) {
       console.error('❌ Failed to fetch categories:', {
@@ -112,7 +135,7 @@ const CategoriesTab = ({ dashboardData = {}, loading, navigate }) => {
             <tr>
               <th className="px-4 py-2 text-left font-medium text-gray-700">Name</th>
               <th className="px-4 py-2 text-left font-medium text-gray-700">Slug</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-700">Products</th>
+              <th className="px-4 py-2 text-left font-medium text-gray-700">Number of Products</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -120,7 +143,11 @@ const CategoriesTab = ({ dashboardData = {}, loading, navigate }) => {
               <tr key={cat._id}>
                 <td className="px-4 py-2 whitespace-nowrap">{cat.name}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-gray-500">{cat.slug}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-gray-500">{cat.productCount ?? 0}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {cat.productCount ?? 0}
+                  </span>
+                </td>
               </tr>
             ))}
             {categories.length === 0 && (
