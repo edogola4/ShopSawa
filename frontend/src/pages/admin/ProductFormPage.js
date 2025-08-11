@@ -163,7 +163,12 @@ function ProductFormPageContent() {
     category: '',
     categoryName: '',
     stock: 0,
-    images: []
+    images: [],
+    inventory: {
+      quantity: 0,
+      lowStockThreshold: 10,
+      trackQuantity: true
+    }
   });
 
   // Fetch categories on component mount
@@ -514,6 +519,61 @@ function ProductFormPageContent() {
                 onChange={handleChange}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="inventory.quantity" className="block text-sm font-medium text-gray-700">
+                  Stock Quantity *
+                </label>
+                <input
+                  type="number"
+                  name="inventory.quantity"
+                  id="inventory.quantity"
+                  required
+                  min="0"
+                  step="1"
+                  value={formData.inventory?.quantity || 0}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10) || 0;
+                    setFormData(prev => ({
+                      ...prev,
+                      inventory: {
+                        ...prev.inventory,
+                        quantity: value
+                      }
+                    }));
+                  }}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">Current stock available for sale</p>
+              </div>
+
+              <div>
+                <label htmlFor="inventory.lowStockThreshold" className="block text-sm font-medium text-gray-700">
+                  Low Stock Alert
+                </label>
+                <input
+                  type="number"
+                  name="inventory.lowStockThreshold"
+                  id="inventory.lowStockThreshold"
+                  min="0"
+                  step="1"
+                  value={formData.inventory?.lowStockThreshold || 10}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10) || 0;
+                    setFormData(prev => ({
+                      ...prev,
+                      inventory: {
+                        ...prev.inventory,
+                        lowStockThreshold: value
+                      }
+                    }));
+                  }}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">Get notified when stock is low</p>
+              </div>
             </div>
             
             <div className="col-span-full">
