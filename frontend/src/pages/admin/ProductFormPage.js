@@ -329,10 +329,9 @@ function ProductFormPageContent() {
     });
     
     try {
+      // Note: We're not setting the Content-Type header here to let the browser
+      // automatically set it with the correct boundary
       const response = await api.post(API_ENDPOINTS.PRODUCTS.UPLOAD_MULTIPLE, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           // Update progress state if needed

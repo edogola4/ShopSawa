@@ -47,7 +47,7 @@ app.use(cors({
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -55,8 +55,18 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'ETag', 'Last-Modified'],
+  maxAge: 600 // Cache preflight request for 10 minutes
 }));
+
+// Add CORS headers to static files
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type, ETag, Last-Modified');
+  next();
+});
 
 // Rate limiting - increased limits for development
 const limiter = rateLimit({
@@ -168,6 +178,17 @@ app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/admin', adminRoutes);
+
+// Test endpoint to verify image serving
+app.get('/test-image', (req, res) => {
+  const imagePath = path.join(__dirname, '../public/uploads/mac-1754891646817-925757055.jpg');
+  res.sendFile(imagePath, (err) => {
+    if (err) {
+      console.error('Error sending test image:', err);
+      res.status(404).json({ error: 'Test image not found', path: imagePath });
+    }
+  });
+});
 
 // 404 handler
 const notFound = require('./middleware/notFound');

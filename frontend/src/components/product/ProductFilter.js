@@ -161,14 +161,14 @@ const ProductFilter = ({
         {loading ? (
           <div className="animate-pulse space-y-2">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-4 bg-gray-200 rounded"></div>
+              <div key={`category-skeleton-${i}`} className="h-4 bg-gray-200 rounded"></div>
             ))}
           </div>
         ) : (
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {categories.map((category) => (
               <label
-                key={category._id}
+                key={`category-${category._id}`}
                 className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
               >
                 <input
@@ -190,16 +190,16 @@ const ProductFilter = ({
       {/* Price Range Filter */}
       <FilterSection title="Price Range" section="price">
         <div className="space-y-2">
-          {PRICE_RANGES.map((range) => (
+          {PRICE_RANGES.filter(range => range && range.id).map((range) => (
             <label
-              key={range.value}
+              key={`price-${range.id}`}
               className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
             >
               <input
                 type="radio"
                 name="priceRange"
-                checked={filters.priceRange === range.value}
-                onChange={() => handleFilterChange('priceRange', range.value)}
+                checked={filters.priceRange === range.id}
+                onChange={() => handleFilterChange('priceRange', range.id)}
                 className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700">{range.label}</span>
@@ -213,7 +213,7 @@ const ProductFilter = ({
         <div className="space-y-2">
           {[5, 4, 3, 2, 1].map((rating) => (
             <label
-              key={rating}
+              key={`rating-${rating}`}
               className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
             >
               <input
@@ -225,16 +225,19 @@ const ProductFilter = ({
               />
               <div className="flex items-center space-x-1">
                 <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={`text-sm ${
-                        i < rating ? 'text-yellow-400' : 'text-gray-300'
-                      }`}
-                    >
-                      ★
-                    </span>
-                  ))}
+                  {[...Array(5)].map((_, i) => {
+                    const starKey = `star-${rating}-${i}`;
+                    return (
+                      <span
+                        key={starKey}
+                        className={`text-sm ${
+                          i < rating ? 'text-yellow-400' : 'text-gray-300'
+                        }`}
+                      >
+                        ★
+                      </span>
+                    );
+                  })}
                 </div>
                 <span className="text-sm text-gray-700">& up</span>
               </div>
@@ -246,7 +249,10 @@ const ProductFilter = ({
       {/* Availability Filter */}
       <FilterSection title="Availability" section="availability">
         <div className="space-y-2">
-          <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+          <label 
+            key="in-stock"
+            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+          >
             <input
               type="checkbox"
               checked={filters.inStock === true}
@@ -255,7 +261,10 @@ const ProductFilter = ({
             />
             <span className="text-sm text-gray-700">In Stock</span>
           </label>
-          <label className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+          <label 
+            key="out-of-stock"
+            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+          >
             <input
               type="checkbox"
               checked={filters.inStock === false}
