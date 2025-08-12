@@ -16,6 +16,10 @@ pids
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
+
+# Docker environment files
+docker-compose.override.yml
 
 # Logs
 logs
