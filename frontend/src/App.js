@@ -6,8 +6,10 @@ import {
   RouterProvider,
   Navigate,
   createRoutesFromElements,
-  Route
+  Route,
+  useLocation
 } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { SimpleCartProvider } from './context/SimpleCartContext';
 import { AppProvider } from './context/AppContext';
@@ -109,7 +111,9 @@ const router = createBrowserRouter(
               <SimpleCartProvider>
                 <ThemeProvider>
                   <div className="App">
-                    <Layout />
+                    <AnimatePresence mode="wait">
+                      <Layout key={window.location.pathname} />
+                    </AnimatePresence>
                   </div>
                 </ThemeProvider>
               </SimpleCartProvider>

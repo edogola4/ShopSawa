@@ -422,7 +422,10 @@ class ApiService {
       ...restConfig
     } = config;
 
-    // Build full URL
+    // Ensure URL is a string and build full URL
+    if (!url || typeof url !== 'string') {
+      throw new Error('Invalid URL provided to API request');
+    }
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`;
     
     // Add query parameters

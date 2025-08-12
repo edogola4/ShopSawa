@@ -11,7 +11,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=5001
-      - MONGODB_URI=mongodb://mongo:27017/ecommerce
+      - MONGODB_URI=mongodb+srv://ecommerce_user:Klondikesolitaire3@cluster0.oh077fx.mongodb.net/shopsawa?retryWrites=true&w=majority
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=your-super-secret-jwt-key-make-it-at-least-32-characters-long

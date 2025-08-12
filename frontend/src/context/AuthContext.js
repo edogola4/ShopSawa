@@ -7,7 +7,7 @@
  * Enhanced authentication state management with robust error handling
  */
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import authService from '../services/auth.service';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '../utils/constants';
 
@@ -688,7 +688,7 @@ export const AuthProvider = ({ children }) => {
   // CONTEXT VALUE
   // ===========================================================================
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     // State
     ...state,
     
@@ -713,7 +713,7 @@ export const AuthProvider = ({ children }) => {
     loginLoadingMessage: state.loginLoading ? LOADING_MESSAGES.LOGGING_IN : null,
     registerLoadingMessage: state.registerLoading ? LOADING_MESSAGES.CREATING_ACCOUNT : null,
     logoutLoadingMessage: state.logoutLoading ? 'Logging out...' : null,
-  };
+  }), [state, login, register, logout, updateProfile, changePassword, forgotPassword, resetPassword, clearError, clearSuccessMessage, hasRole, isAdmin]);
 
   return (
     <AuthContext.Provider value={contextValue}>
